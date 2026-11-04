@@ -330,12 +330,12 @@ erDiagram
 | `timeline(driver, inicio, fim, granularidade)` | função RPC | série `date_trunc('day'/'week'/'month')` de receita total, custo e receita faturada |
 | `mei_status(driver, ano)` | função RPC | acumulado no ano (por recebimento), limite (proporcional se ano de abertura), % usado, quanto falta, média mensal permitida, faixa de alerta |
 | `monthly_aggregates` | tabela/visão materializada atualizada por `pg_cron` + gatilho | totais mensais por fretista — base barata para previsão e gráficos longos |
-| `forecast` | Edge Function | previsão 3 meses + fechamento do ano |
+| `forecast` | TypeScript no app (`src/domain/forecast.ts`) sobre `timeline(..., 'month')` | previsão 3 meses + fechamento do ano |
 
 **Previsão (RF-45) — abordagem simples e explicável:**
 1. Menos de 3 meses → não prevê (RN-04).
-2. 3 a 11 meses → média móvel ponderada + tendência linear (regressão sobre `monthly_aggregates`), faixa = ± desvio padrão.
-3. 12+ meses → **Holt-Winters** (suavização exponencial com sazonalidade anual), faixa = intervalo de previsão.
+2. 3 a 23 meses → suavização de **Holt** (nível + tendência amortecida), faixa ≈ 80% a partir do erro das previsões de um passo.
+3. 24+ meses (duas temporadas completas) → **Holt-Winters** (suavização exponencial com sazonalidade anual), faixa = intervalo de previsão.
 4. Projeção do MEI: `acumulado_no_ano + soma(previsão dos meses restantes)` → "No ritmo atual, você chega a ~X% do limite em dezembro" e "o limite seria atingido em *mês*".
 
 Tudo roda em TypeScript na Edge Function (sem dependência de serviço pago de ML) e o resultado
@@ -382,7 +382,7 @@ rodata/
 | **Expo SDK (última estável) + React Native** (New Architecture) | App Android/iOS/Web | Padrão de mercado para React Native; uma base de código; builds e atualizações OTA sem loja |
 | **TypeScript** | Linguagem | Segurança de tipos ponta a ponta (tipos gerados do banco com `supabase gen types`) |
 | **Expo Router** | Navegação | Rotas por arquivo, deep links (convite do analista por link), URLs reais na web |
-| **NativeWind v4 (Tailwind CSS)** + componentes próprios acessíveis | Estilo / design system | Mesmo vocabulário Tailwind do mercado, funciona em mobile e web; tokens do Figma viram tema |
+| **StyleSheet + tokens próprios** (`src/theme/tokens.ts`) e componentes acessíveis | Estilo / design system | Zero dependências extras e compatível com a última versão do Expo; NativeWind pode ser adotado depois sem mudar os componentes |
 | **TanStack Query v5** | Dados remotos, cache, offline | Cache persistente, retry, mutações offline, atualização em segundo plano |
 | **Zustand** | Estado local leve (filtros, período selecionado) | Simples, sem boilerplate |
 | **React Hook Form + Zod** | Formulários e validação | Mesmo schema valida no app e na Edge Function |
@@ -469,3 +469,34 @@ tela inicial).
 - Dashboard abre em < 1 s com cache e confere, centavo a centavo, com a soma das viagens do período.
 - Termômetro do MEI calcula corretamente o limite proporcional no ano de abertura e os alertas de 20%.
 - Analista não consegue, por nenhuma chamada de API, ler dados de um fretista que não o convidou (teste pgTAP).
+
+---
+
+## 9. Estado da implementação (v0.1 — 04/11/2026)
+
+### Decisões tomadas durante a implementação
+
+- **Custos da viagem em colunas** (`fuel_cents`, `toll_cents`, `food_cents`, `maintenance_cents`,
+  `other_cents`) na própria tabela `trips`, com `cost_cents` calculado pelo banco. Mais simples
+  para o MVP e para o modo offline. A tabela `trip_expenses` (vários abastecimentos por viagem,
+  RF-19) entra na V2.
+- **Previsão calculada no app** a partir dos totais mensais devolvidos pelo banco (poucos bytes):
+  evita manter uma Edge Function. Pode ser movida para o servidor sem mudar a regra.
+- **Exclusão definitiva** (sem *soft delete*): a fila de mutações offline já garante a ordem dos
+  envios; o "Desfazer" recria a viagem com o mesmo ID.
+- **Expo SDK 58** (React Native 0.88, React 19.3, Expo Router 58) com React Compiler ligado.
+
+### Concluído
+
+RF-01, RF-02, RF-03, RF-05, RF-06, RF-07, RF-08, RF-10, RF-11, RF-13, RF-14, RF-15, RF-16, RF-17,
+RF-20 (km rodados), RF-30, RF-31, RF-33, RF-40, RF-41, RF-42, RF-43, RF-44, RF-45, RF-50;
+RN-01 a RN-07; RNF-01 a RNF-08, RNF-20, RNF-21, RNF-30, RNF-31, RNF-40, RNF-41, RNF-42.
+
+### Pendente
+
+- RF-04 (link mágico / Google), RF-12 e RF-48 (a receber), RF-18 (foto de comprovante),
+  RF-19, RF-21 (custos fixos), RF-46/47, RF-49, RF-51 (PDF/CSV), RF-52 (push).
+- RNF-33: **exclusão de conta** pelo app (precisa de Edge Function com chave de serviço) e termos
+  de uso/política de privacidade — obrigatório antes de publicar nas lojas.
+- RNF-34: backup diário automatizado do banco.
+- RNF-09: onboarding guiado.

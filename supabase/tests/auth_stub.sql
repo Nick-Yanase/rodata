@@ -1,0 +1,19 @@
+-- Simula o mínimo do Supabase (auth.users, auth.uid(), papéis) para testar as
+-- migrations num Postgres comum. NÃO aplicar no Supabase.
+create schema if not exists auth;
+create schema if not exists extensions;
+create table if not exists auth.users (
+  id uuid primary key,
+  email text,
+  raw_user_meta_data jsonb not null default '{}'
+);
+create or replace function auth.uid() returns uuid language sql stable as $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$$;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $$;
+grant usage on schema public, auth, extensions to anon, authenticated;
+grant execute on function auth.uid() to anon, authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;

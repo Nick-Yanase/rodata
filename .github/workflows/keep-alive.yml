@@ -1,0 +1,21 @@
+name: Supabase keep-alive
+
+# O plano gratuito do Supabase pausa o projeto após ~7 dias sem acesso.
+# Uma consulta diária mantém o banco ativo.
+on:
+  schedule:
+    - cron: '17 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar a API
+        env:
+          URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ]; then echo "Segredos não configurados — nada a fazer."; exit 0; fi
+          curl -fsS "$URL/rest/v1/profiles?select=id&limit=1" -H "apikey: $KEY" -o /dev/null
+          echo "Supabase respondeu."
