@@ -62,10 +62,10 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 |---|---|---|
 | RF-10 | Criar viagem com: nome/descrição, origem e destino (local), data, **valor do frete**, e custos por categoria — combustível, pedágio, alimentação, manutenção, **outros**. Só *valor do frete* e *data* são obrigatórios. | M |
 | RF-11 | Campos de dinheiro com **máscara R$** automática e teclado numérico. | M |
-| RF-12 | Status de recebimento do frete: **a receber / recebido** (com data de recebimento). Base para "receita faturada" × "receita total" (ver §2.6). | M |
+| RF-12 | Status de recebimento do frete: **a receber / recebido** (com data de recebimento), para controlar fretes ainda não pagos (RF-48). | V2 |
 | RF-13 | Editar e excluir viagem (exclusão com confirmação e opção **desfazer** por alguns segundos). | M |
 | RF-14 | Listar viagens com busca por nome/local, filtro por período e ordenação por data/valor. | M |
-| RF-15 | Card de viagem mostra frete, custo e **lucro da viagem** em destaque (verde/vermelho). | M |
+| RF-15 | Card de viagem mostra frete, custo e a **receita faturada da viagem** (frete − custos) em destaque (verde/vermelho). | M |
 | RF-16 | **Repetir viagem**: duplicar uma viagem anterior (rotas recorrentes) e só ajustar valores. | M |
 | RF-17 | Funcionamento **offline**: registrar viagem sem internet e sincronizar sozinho quando voltar o sinal, com indicador claro ("salvo no celular / enviado"). | M |
 | RF-18 | Anexar **foto do comprovante** (cupom de combustível, pedágio, nota) a cada custo. | V2 |
@@ -89,12 +89,12 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 | ID | Requisito | Prior. |
 |---|---|---|
 | RF-40 | Seletor de **período analisado** e **período comparado** (atalhos: este mês, mês passado, últimos 3 meses, este ano, personalizado). | M |
-| RF-41 | Cards: **Receita total**, **Receita faturada (recebida)**, **Custo total**, **Lucro líquido** e **Margem %**, cada um com variação % vs. período comparado (seta + cor). | M |
+| RF-41 | Cards: **Receita total** (soma dos fretes), **Receita faturada** (receita total − custos), **Custo total** e **Margem %** (faturada ÷ total), cada um com variação % vs. período comparado (seta + cor). Definições em §2.6. | M |
 | RF-42 | Quebra de custos por categoria (barras horizontais, como no design) com valor e % do total. | M |
-| RF-43 | **Timeline** de receita × custo × lucro com agrupamento Dia / Semana / Mês. | M |
+| RF-43 | **Timeline** de receita total × custo × receita faturada com agrupamento Dia / Semana / Mês. | M |
 | RF-44 | **Termômetro do MEI**: faturamento acumulado no ano × limite, % usado, quanto falta, **média mensal máxima permitida** até dezembro e alerta quando passar de 70% / 90% / 100% / 120%. | M |
 | RF-45 | **Previsão** de receita e custo para os próximos 3 meses e **projeção de fechamento do ano** (inclusive projeção de quando o teto do MEI seria atingido). Mostrar como faixa (otimista/provável/pessimista), nunca como número exato. | M |
-| RF-46 | Indicadores de eficiência: ticket médio do frete, lucro médio por viagem, nº de viagens, custo por categoria / receita, R$/km e km/l (quando houver km). | V2 |
+| RF-46 | Indicadores de eficiência: ticket médio do frete, receita faturada média por viagem, nº de viagens, custo por categoria / receita, R$/km e km/l (quando houver km). | V2 |
 | RF-47 | Ranking de destinos/rotas mais lucrativos e menos lucrativos. | V2 |
 | RF-48 | **Valores a receber**: lista de fretes não recebidos e há quantos dias. | V2 |
 | RF-49 | Lembrete mensal do **DAS do MEI** (vencimento dia 20). | V2 |
@@ -111,8 +111,11 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
   - No **ano de abertura**, o limite é proporcional: `limite / 12 × meses desde a abertura`.
   - Até **20% acima** do limite: desenquadramento a partir do ano seguinte.
     **Mais de 20% acima**: desenquadramento retroativo a janeiro (impostos retroativos) — alerta vermelho.
-  - O faturamento do MEI é por **regime de caixa** (o que foi recebido) → usar data de recebimento (RF-12).
-- **RN-02 Lucro** = receita − custos variáveis (viagens) − custos fixos do período (quando houver, V2).
+  - O limite do MEI é sobre a **receita bruta** = **Receita total** (o valor cheio dos fretes), **não** sobre a
+    receita faturada — os custos não abatem o limite. Data de referência: data da viagem (ou de recebimento, quando RF-12 existir).
+- **RN-02 Receita total** = soma do valor do frete das viagens do período.
+  **Receita faturada** = receita total − custos das viagens (combustível, pedágio, comida, manutenção, outros)
+  − custos fixos do período (quando houver, V2). Pode ser negativa (mostrar em vermelho).
 - **RN-03 Variação %** = `(atual − comparado) / comparado`; se o comparado for zero, mostrar "—" e não "∞".
 - **RN-04 Previsão**: só exibir com pelo menos 3 meses de histórico; com menos, mostrar "Precisamos de mais
   meses de dados para prever". Com ≥ 12 meses, considerar sazonalidade.
@@ -121,12 +124,22 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 - **RN-06 Valores** armazenados em **centavos (inteiro)** para não haver erro de arredondamento.
 - **RN-07 Datas** no fuso `America/Sao_Paulo`; exibição dd/mm/aaaa.
 
-### 2.6 Ponto a confirmar com o cliente
+### 2.6 Definição dos indicadores de receita (confirmada com o cliente)
 
-O design mostra **Receita faturada (R$ 10.000)** e **Receita total (R$ 12.000)**. A proposta deste
-documento é: *total* = soma de todos os fretes do período; *faturada* = fretes **já recebidos**
-(regime de caixa — é o que conta para o MEI). Se a intenção for "fretes com nota fiscal emitida",
-troca-se o status `recebido` por `nota emitida` (ou mantêm-se os dois).
+| Indicador | Fórmula | Exemplo |
+|---|---|---|
+| **Receita total** | Σ valor do frete (o que o cliente paga pela viagem) | Frete R$ 600,00 |
+| **Custo** | Σ combustível + pedágio + comida + manutenção + outros | R$ 200,00 |
+| **Receita faturada** | Receita total − Custo | R$ 400,00 |
+| **Margem** | Receita faturada ÷ Receita total | 66,7% |
+
+Observações:
+- Os valores de exemplo do Figma (total R$ 12.000, custo R$ 3.900, faturada R$ 10.000) não fecham
+  com a fórmula — são placeholders; com a regra, a faturada seria R$ 8.100.
+- Em contabilidade "faturado" costuma significar "valor cobrado/nota emitida", o que pode confundir o
+  analista. Sugestão: manter o rótulo **"Receita faturada"** com o subtítulo *"frete − custos"*, e na
+  visão do fretista chamar de **"Sobrou"** / **"Lucro"**.
+- O **termômetro do MEI usa a Receita total**, nunca a faturada (RN-01).
 
 ---
 
@@ -313,8 +326,8 @@ erDiagram
 
 | Objeto | Tipo | Retorna |
 |---|---|---|
-| `dashboard_summary(driver, inicio, fim, cmp_inicio, cmp_fim)` | função RPC | receita total, faturada, custos por categoria, lucro, margem e variações % — **uma chamada para o topo do dashboard** |
-| `timeline(driver, inicio, fim, granularidade)` | função RPC | série `date_trunc('day'/'week'/'month')` de receita, custo e lucro |
+| `dashboard_summary(driver, inicio, fim, cmp_inicio, cmp_fim)` | função RPC | receita total, custos por categoria, receita faturada (total − custos), margem e variações % — **uma chamada para o topo do dashboard** |
+| `timeline(driver, inicio, fim, granularidade)` | função RPC | série `date_trunc('day'/'week'/'month')` de receita total, custo e receita faturada |
 | `mei_status(driver, ano)` | função RPC | acumulado no ano (por recebimento), limite (proporcional se ano de abertura), % usado, quanto falta, média mensal permitida, faixa de alerta |
 | `monthly_aggregates` | tabela/visão materializada atualizada por `pg_cron` + gatilho | totais mensais por fretista — base barata para previsão e gráficos longos |
 | `forecast` | Edge Function | previsão 3 meses + fechamento do ano |
@@ -424,7 +437,7 @@ tela inicial).
 
 ## 6. Diretrizes de UI para as personas (ajustes sugeridos ao design)
 
-1. **Home do fretista ≠ Home do analista.** Fretista: um card grande "Lucro do mês", termômetro do MEI,
+1. **Home do fretista ≠ Home do analista.** Fretista: um card grande "Sobrou este mês" (receita faturada), termômetro do MEI,
    botão enorme **"+ Nova viagem"**, últimas viagens. Analista: dashboard completo (comparativos,
    timeline, previsões), aproveitando a largura da tela no computador.
 2. **Barra inferior com rótulos** (Início · Viagens · Anotações · Perfil) e o "+" central em destaque.
@@ -432,7 +445,7 @@ tela inicial).
    custos opcionais e um campo "Outros". Botão "Salvar viagem" sempre visível.
 4. **Período em linguagem natural**: botões "Este mês", "Mês passado", "Este ano" antes do calendário.
 5. **Gráfico simples** para o fretista (barras por mês: recebeu × gastou); área/linha detalhada para o analista.
-   Remover as legendas de exemplo do Figma (Figma/Sketch/XD) e usar Receita/Custo/Lucro.
+   Remover as legendas de exemplo do Figma (Figma/Sketch/XD) e usar Receita total / Custo / Receita faturada.
 6. **Cores com significado consistente**: verde = lucro/aumento bom, vermelho = gasto/queda, laranja Rodata =
    ações principais. Variações sempre com seta e sinal (+/−).
 7. **Estados vazios que ensinam**: "Você ainda não lançou viagens este mês. Toque em + para começar."
@@ -444,7 +457,7 @@ tela inicial).
 | Fase | Entregas |
 |---|---|
 | **0 — Fundação** (1 sem.) | Repositório, Expo + Supabase, migrations, RLS, CI/CD, design tokens do Figma |
-| **1 — MVP fretista** (3–4 sem.) | Auth, cadastro do negócio (MEI), CRUD de viagens com offline, anotações, Home simples com lucro do mês e termômetro do MEI |
+| **1 — MVP fretista** (3–4 sem.) | Auth, cadastro do negócio (MEI), CRUD de viagens com offline, anotações, Home simples com receita faturada do mês e termômetro do MEI |
 | **2 — MVP analista** (2–3 sem.) | Convite por link, dashboard completo (comparativos, custos por categoria, timeline), previsão e projeção do MEI, versão web publicada |
 | **3 — V2** | Comprovantes com foto, custos fixos, km/consumo, a receber, PDF/CSV, push, lembrete do DAS, vários fretistas por analista |
 | **4 — Futuro** | Voz, OCR de comprovante, publicação nas lojas |
