@@ -4,19 +4,21 @@ import { useDeferredValue, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverSwitcher } from '@/components/DriverSwitcher';
+import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { NoteCard } from '@/components/NoteCard';
 import { AppText, Button, EmptyState } from '@/components/ui';
-import { useActiveDriver, useSession } from '@/features/auth/session';
+import { useActiveOrg, useSession } from '@/features/auth/session';
+import { useAuthorLabel } from '@/features/settings/api';
 import { useNotes } from '@/features/notes/api';
 import { colors, font, MAX_WIDTH, radius, space } from '@/theme/tokens';
 
 export default function NotesList() {
-  const { driverId } = useActiveDriver();
+  const { orgId } = useActiveOrg();
   const { userId } = useSession();
+  const authorOf = useAuthorLabel(orgId, userId);
   const [search, setSearch] = useState('');
   const deferred = useDeferredValue(search);
-  const notes = useNotes(driverId, deferred);
+  const notes = useNotes(orgId, deferred);
   const items = notes.data?.pages.flat() ?? [];
 
   return (
@@ -33,7 +35,7 @@ export default function NotesList() {
         ListHeaderComponent={
           <View style={styles.header}>
             <AppText variant="heading">Anotações</AppText>
-            <DriverSwitcher />
+            <OrgSwitcher />
             <View style={styles.search}>
               <Ionicons name="search" size={22} color={colors.textMuted} />
               <TextInput
@@ -51,7 +53,7 @@ export default function NotesList() {
         renderItem={({ item }) => (
           <NoteCard
             note={item}
-            authorLabel={item.author_id === userId ? undefined : item.author_id === item.driver_id ? 'do fretista' : 'do analista'}
+            authorLabel={authorOf(item.author_id)}
             onPress={() => router.push({ pathname: '/anotacao/[id]', params: { id: item.id } })}
           />
         )}
@@ -68,7 +70,7 @@ export default function NotesList() {
           )
         }
       />
-      {driverId ? (
+      {orgId ? (
         <View style={styles.footer}>
           <View style={styles.footerInner}>
             <Button title="Nova anotação" icon="add-circle" onPress={() => router.push({ pathname: '/anotacao/[id]', params: { id: 'nova' } })} />

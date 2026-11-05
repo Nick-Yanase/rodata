@@ -16,9 +16,8 @@ export type TripSort = 'date_desc' | 'date_asc' | 'freight_desc';
 
 export const tripKeys = {
   all: ['trips'] as const,
-  list: (driverId: string, search: string, sort: TripSort) => ['trips', 'list', driverId, search, sort] as const,
+  list: (orgId: string, search: string, sort: TripSort) => ['trips', 'list', orgId, search, sort] as const,
   detail: (id: string) => ['trips', 'detail', id] as const,
-  last: (driverId: string) => ['trips', 'last', driverId] as const,
 };
 
 /** Escapa curingas para usar a busca do usuário dentro de um ILIKE. */
@@ -26,13 +25,13 @@ function likePattern(search: string) {
   return `%${search.replace(/[%_\\,()]/g, ' ').trim()}%`;
 }
 
-export function useTrips(driverId: string | null, search: string, sort: TripSort) {
+export function useTrips(orgId: string | null, search: string, sort: TripSort) {
   return useInfiniteQuery({
-    queryKey: tripKeys.list(driverId ?? '', search, sort),
-    enabled: Boolean(driverId),
+    queryKey: tripKeys.list(orgId ?? '', search, sort),
+    enabled: Boolean(orgId),
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      let q = supabase.from('trips').select('*').eq('driver_id', driverId!);
+      let q = supabase.from('trips').select('*').eq('org_id', orgId!);
       if (search.trim()) {
         const p = likePattern(search);
         q = q.or(`title.ilike.${p},destination.ilike.${p},origin.ilike.${p}`);
@@ -72,11 +71,12 @@ function findTripInCache(qc: QueryClient, id: string): TripRow | undefined {
 }
 
 /** Converte o formulário em linha completa (para a atualização otimista). */
-export function toRow(input: TripInsert & { driver_id: string }, existing?: TripRow): TripRow {
+export function toRow(input: TripInsert, createdBy: string | null, existing?: TripRow): TripRow {
   const now = new Date().toISOString();
   return {
     ...existing,
     ...input,
+    created_by: existing?.created_by ?? createdBy,
     cost_cents:
       input.fuel_cents + input.toll_cents + input.food_cents + input.maintenance_cents + input.other_cents,
     created_at: existing?.created_at ?? now,
@@ -85,7 +85,7 @@ export function toRow(input: TripInsert & { driver_id: string }, existing?: Trip
 }
 
 function upsertInLists(qc: QueryClient, row: TripRow) {
-  qc.setQueriesData<InfiniteData<TripRow[]>>({ queryKey: ['trips', 'list', row.driver_id] }, (data) => {
+  qc.setQueriesData<InfiniteData<TripRow[]>>({ queryKey: ['trips', 'list', row.org_id] }, (data) => {
     if (!data) return data;
     let found = false;
     const pages = data.pages.map((page) =>

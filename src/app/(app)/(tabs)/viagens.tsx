@@ -4,11 +4,12 @@ import { useDeferredValue, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverSwitcher } from '@/components/DriverSwitcher';
+import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TripCard } from '@/components/TripCard';
 import { AppText, Button, Chip, EmptyState } from '@/components/ui';
-import { useActiveDriver } from '@/features/auth/session';
+import { useActiveOrg, useSession } from '@/features/auth/session';
+import { useAuthorLabel } from '@/features/settings/api';
 import { useTrips, type TripSort } from '@/features/trips/api';
 import { colors, font, MAX_WIDTH, radius, space } from '@/theme/tokens';
 
@@ -19,11 +20,13 @@ const SORTS: { id: TripSort; label: string }[] = [
 ];
 
 export default function TripsList() {
-  const { driverId, readOnly } = useActiveDriver();
+  const { orgId } = useActiveOrg();
+  const { userId } = useSession();
+  const authorOf = useAuthorLabel(orgId, userId);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<TripSort>('date_desc');
   const deferred = useDeferredValue(search);
-  const trips = useTrips(driverId, deferred, sort);
+  const trips = useTrips(orgId, deferred, sort);
   const items = trips.data?.pages.flat() ?? [];
 
   return (
@@ -41,7 +44,7 @@ export default function TripsList() {
           <View style={styles.header}>
             <AppText variant="heading">Viagens</AppText>
             <SyncStatus />
-            <DriverSwitcher />
+            <OrgSwitcher />
             <View style={styles.search}>
               <Ionicons name="search" size={22} color={colors.textMuted} />
               <TextInput
@@ -63,7 +66,7 @@ export default function TripsList() {
           </View>
         }
         renderItem={({ item }) => (
-          <TripCard trip={item} onPress={() => router.push({ pathname: '/viagem/[id]', params: { id: item.id } })} />
+          <TripCard trip={item} author={authorOf(item.created_by)} onPress={() => router.push({ pathname: '/viagem/[id]', params: { id: item.id } })} />
         )}
         ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
         ListEmptyComponent={
@@ -77,7 +80,7 @@ export default function TripsList() {
             <EmptyState
               icon="bus-outline"
               title="Nenhuma viagem ainda"
-              message={readOnly ? 'O fretista ainda não lançou viagens.' : 'Toque em “Nova viagem” para lançar a primeira.'}
+              message="Toque em “Nova viagem” para lançar a primeira."
             />
           )
         }
@@ -85,13 +88,11 @@ export default function TripsList() {
           trips.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ margin: 16 }} /> : undefined
         }
       />
-      {!readOnly ? (
-        <View style={styles.footer}>
-          <View style={styles.footerInner}>
-            <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
-          </View>
+      <View style={styles.footer}>
+        <View style={styles.footerInner}>
+          <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
         </View>
-      ) : null}
+      </View>
     </SafeAreaView>
   );
 }

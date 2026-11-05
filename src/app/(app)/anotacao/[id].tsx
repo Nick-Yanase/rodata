@@ -4,7 +4,8 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Card, confirm, DateField, EmptyState, Screen, TextField, useToast } from '@/components/ui';
 import { toISODate } from '@/domain/dates';
-import { useActiveDriver, useSession } from '@/features/auth/session';
+import { useActiveOrg, useSession } from '@/features/auth/session';
+import { useAuthorLabel } from '@/features/settings/api';
 import { useDeleteNote, useNote, useSaveNote } from '@/features/notes/api';
 import type { NoteRow } from '@/lib/database.types';
 import { goBack } from '@/lib/navigation';
@@ -31,8 +32,10 @@ export default function NoteScreen() {
 }
 
 function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existing?: NoteRow }) {
-  const { driverId } = useActiveDriver();
+  const { orgId } = useActiveOrg();
   const { userId } = useSession();
+  const authorOf = useAuthorLabel(orgId, userId);
+  const author = existing ? authorOf(existing.author_id) : undefined;
   const save = useSaveNote();
   const del = useDeleteNote();
   const toast = useToast();
@@ -42,17 +45,16 @@ function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existin
   const [date, setDate] = useState(existing?.note_date ?? toISODate(new Date()));
   const [error, setError] = useState<string>();
 
-  const canEdit = isNew || existing?.author_id === userId;
 
   function onSave() {
     if (!title.trim()) return setError('Dê um título para a anotação.');
-    if (!driverId || !userId) return;
+    if (!orgId || !userId) return;
     const now = new Date().toISOString();
     save.mutate(
       {
         id: isNew ? newId() : id,
-        driver_id: existing?.driver_id ?? driverId,
-        author_id: userId,
+        org_id: existing?.org_id ?? orgId,
+        author_id: existing ? existing.author_id : userId,
         title: title.trim(),
         body: body.trim(),
         note_date: date,
@@ -75,8 +77,8 @@ function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existin
   }
 
   return (
-    <Screen edges={['bottom']} footer={canEdit ? <Button title="Salvar" icon="checkmark-circle" onPress={onSave} /> : undefined}>
-      <Stack.Screen options={{ title: isNew ? 'Nova anotação' : canEdit ? 'Editar anotação' : 'Anotação' }} />
+    <Screen edges={['bottom']} footer={<Button title="Salvar" icon="checkmark-circle" onPress={onSave} />}>
+      <Stack.Screen options={{ title: isNew ? 'Nova anotação' : 'Editar anotação' }} />
       <Card>
         <TextField
           label="Título"
@@ -87,9 +89,8 @@ function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existin
           }}
           placeholder="Ex.: Cliente paga só no dia 10"
           error={error}
-          editable={canEdit}
         />
-        <DateField label="Data" value={date} onChange={setDate} editable={canEdit} />
+        <DateField label="Data" value={date} onChange={setDate} />
         <TextField
           label="Anotação"
           value={body}
@@ -98,16 +99,15 @@ function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existin
           textAlignVertical="top"
           style={styles.body}
           placeholder="Escreva aqui…"
-          editable={canEdit}
           optional
         />
-        {!canEdit ? (
+        {author ? (
           <AppText variant="small" color={colors.textMuted}>
-            Só quem escreveu pode alterar esta anotação.
+            Escrita por {author}
           </AppText>
         ) : null}
       </Card>
-      {!isNew && canEdit ? <Button title="Excluir anotação" variant="danger" icon="trash-outline" onPress={onDelete} /> : null}
+      {!isNew ? <Button title="Excluir anotação" variant="danger" icon="trash-outline" onPress={onDelete} /> : null}
     </Screen>
   );
 }

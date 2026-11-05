@@ -16,6 +16,7 @@ export default function AppLayout() {
         headerBackButtonDisplayMode: 'minimal',
       }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="comecar" options={{ headerShown: false }} />
       <Stack.Screen name="viagem/[id]" options={{ title: 'Viagem' }} />
       <Stack.Screen name="anotacao/[id]" options={{ title: 'Anotação' }} />
     </Stack>

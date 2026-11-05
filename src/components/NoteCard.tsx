@@ -20,7 +20,7 @@ export function NoteCard({ note, authorLabel, onPress }: { note: NoteRow; author
         <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
         <AppText variant="small" color={colors.textMuted}>
           {formatDateBR(note.note_date)}
-          {authorLabel ? ` · ${authorLabel}` : ''}
+          {authorLabel ? ` · por ${authorLabel}` : ''}
         </AppText>
       </View>
       {note.body ? (

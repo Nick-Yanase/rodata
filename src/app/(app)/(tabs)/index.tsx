@@ -4,16 +4,15 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
-import { AcceptInvite } from '@/components/AcceptInvite';
 import { CostBreakdown } from '@/components/CostBreakdown';
-import { DriverSwitcher } from '@/components/DriverSwitcher';
 import { ForecastCard } from '@/components/ForecastCard';
 import { KpiCard } from '@/components/KpiCard';
 import { Logo } from '@/components/Logo';
 import { MeiCard } from '@/components/MeiCard';
+import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TimelineChart } from '@/components/TimelineChart';
-import { AppText, Button, Card, Chip, EmptyState, Screen, Segmented } from '@/components/ui';
+import { AppText, Button, Card, Chip, Screen, Segmented } from '@/components/ui';
 import {
   defaultGrain,
   formatDateBR,
@@ -30,7 +29,7 @@ import { formatPercent, margin, variation } from '@/domain/metrics';
 import { formatBRL } from '@/domain/money';
 import { useSession } from '@/features/auth/session';
 import { useMonthlyHistory, useSummary, useTimeline } from '@/features/dashboard/api';
-import { useBusinessSettings } from '@/features/settings/api';
+import { useOrgSettings } from '@/features/settings/api';
 import { colors } from '@/theme/tokens';
 
 const GRAINS: { id: Grain; label: string }[] = [
@@ -42,44 +41,26 @@ const GRAINS: { id: Grain; label: string }[] = [
 const SHORT_REGIME: Record<Regime, string> = { mei_tac: 'MEI', mei: 'MEI', me: 'ME', other: 'negócio' };
 
 export default function Dashboard() {
-  const { activeDriverId, activeDriverName, isAnalyst, profile, linkedDrivers } = useSession();
+  const { activeOrg, profile } = useSession();
+  const orgId = activeOrg?.id ?? null;
   const [preset, setPreset] = useState<PeriodPreset>('this_month');
   const [compare, setCompare] = useState(true);
   const { current, previous } = useMemo(() => resolvePreset(preset), [preset]);
   const [grainChoice, setGrainChoice] = useState<Grain | null>(null);
   const grain = grainChoice && isGrainAllowed(current, grainChoice) ? grainChoice : defaultGrain(current);
 
-  const summary = useSummary(activeDriverId, current, previous);
+  const summary = useSummary(orgId, current, previous);
   // não desenha o futuro como "zero" no gráfico
   const todayISO = toISODate(new Date());
   const timelinePeriod = useMemo(
     () => ({ start: current.start, end: current.end > todayISO && current.start <= todayISO ? todayISO : current.end }),
     [current, todayISO],
   );
-  const timeline = useTimeline(activeDriverId, timelinePeriod, grain);
-  const monthly = useMonthlyHistory(activeDriverId);
-  const settings = useBusinessSettings(activeDriverId);
+  const timeline = useTimeline(orgId, timelinePeriod, grain);
+  const monthly = useMonthlyHistory(orgId);
+  const settings = useOrgSettings(orgId);
 
-  const name = (isAnalyst ? profile?.name : activeDriverName) ?? profile?.name ?? '';
-  const firstName = name.split(' ')[0];
-
-  if (isAnalyst && !activeDriverId) {
-    return (
-      <Screen>
-        <Header initial={firstName[0]} />
-        {linkedDrivers.length === 0 ? (
-          <>
-            <EmptyState
-              icon="people-outline"
-              title={`Olá, ${firstName || 'analista'}!`}
-              message="Para ver os números, peça ao fretista o código de convite (ele gera em Perfil → Analista) e digite abaixo."
-            />
-            <AcceptInvite />
-          </>
-        ) : null}
-      </Screen>
-    );
-  }
+  const firstName = (profile?.name ?? '').split(' ')[0];
 
   const cur = summary.data?.current;
   const prev = summary.data?.previous;
@@ -135,13 +116,16 @@ export default function Dashboard() {
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Header initial={firstName[0]} />
       <SyncStatus />
-      <DriverSwitcher />
+      <OrgSwitcher />
 
       {/* Resumo em linguagem simples (RF-50) */}
       <View style={styles.hello}>
-        <AppText variant="title">
-          {isAnalyst ? `Números de ${activeDriverName ?? 'fretista'}` : `Olá, ${firstName || 'motorista'}!`}
-        </AppText>
+        <AppText variant="title">{firstName ? `Olá, ${firstName}!` : 'Olá!'}</AppText>
+        {activeOrg ? (
+          <AppText variant="small" color={colors.textMuted}>
+            {activeOrg.name}
+          </AppText>
+        ) : null}
         {cur ? (
           <AppText color={colors.textMuted}>
             {cur.trips === 0
@@ -157,9 +141,7 @@ export default function Dashboard() {
         ) : null}
       </View>
 
-      {!isAnalyst ? (
-        <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
-      ) : null}
+      <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
 
       {/* Período analisado × comparado (RF-40) */}
       <Card>
@@ -250,8 +232,7 @@ export default function Dashboard() {
           regimeLabel={SHORT_REGIME[regime]}
           projection={projection}
           reachMonth={reachMonth}
-          configured={Boolean(settings.data)}
-          canEdit={!isAnalyst}
+          configured={Boolean(settings.data?.cnpj_opened_at) || settings.data?.regime !== 'mei_tac'}
         />
       ) : null}
 
@@ -264,7 +245,7 @@ export default function Dashboard() {
         />
       ) : null}
 
-      {!settings.data && !isAnalyst && settings.isFetched ? (
+      {settings.isFetched && settings.data?.regime === 'mei_tac' && !settings.data?.cnpj_opened_at ? (
         <AppText variant="small" color={colors.textMuted} align="center">
           Considerando {REGIMES[0].label}. Ajuste em Perfil se não for o seu caso.
         </AppText>

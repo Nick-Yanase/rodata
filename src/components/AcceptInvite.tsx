@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { useAcceptInvite } from '@/features/settings/api';
 import { useSession } from '@/features/auth/session';
+import { useAcceptInvite } from '@/features/settings/api';
 import { friendlyError } from '@/lib/supabase';
 
-import { Button, Card, TextField, useToast } from './ui';
+import { Button, TextField, useToast } from './ui';
 
-/** Analista digita o código que o fretista mandou (RF-06). */
-export function AcceptInvite() {
+/** Entrar numa organização com o código recebido pelo WhatsApp. */
+export function AcceptInvite({ onJoined }: { onJoined?: (orgId: string) => void }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
   const accept = useAcceptInvite();
-  const { setActiveDriverId } = useSession();
+  const { setActiveOrgId } = useSession();
   const toast = useToast();
 
   async function submit() {
@@ -20,31 +20,30 @@ export function AcceptInvite() {
     if (clean.length !== 6) return setError('O código tem 6 letras e números.');
     setError(undefined);
     try {
-      const driverId = await accept.mutateAsync(clean);
-      setActiveDriverId(driverId);
+      const orgId = await accept.mutateAsync(clean);
+      setActiveOrgId(orgId);
       setCode('');
-      toast({ message: 'Pronto! Agora você acompanha esse fretista.' });
+      toast({ message: 'Pronto! Você entrou na organização.' });
+      onJoined?.(orgId);
     } catch (e) {
       setError(friendlyError(e));
     }
   }
 
   return (
-    <Card>
-      <View style={{ gap: 12 }}>
-        <TextField
-          label="Código de convite"
-          value={code}
-          onChangeText={(t) => setCode(t.toUpperCase())}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={8}
-          placeholder="Ex.: K7P2QX"
-          error={error}
-          onSubmitEditing={submit}
-        />
-        <Button title="Acompanhar fretista" icon="link-outline" onPress={submit} loading={accept.isPending} />
-      </View>
-    </Card>
+    <View style={{ gap: 12 }}>
+      <TextField
+        label="Código de convite"
+        value={code}
+        onChangeText={(t) => setCode(t.toUpperCase())}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={8}
+        placeholder="Ex.: K7P2QX"
+        error={error}
+        onSubmitEditing={submit}
+      />
+      <Button title="Entrar na organização" icon="enter-outline" onPress={submit} loading={accept.isPending} />
+    </View>
   );
 }

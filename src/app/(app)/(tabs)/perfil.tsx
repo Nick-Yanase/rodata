@@ -1,39 +1,48 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import * as Clipboard from 'expo-clipboard';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
-import { AppText, Button, Card, confirm, DateField, MoneyField, Screen, TextField, useToast } from '@/components/ui';
+import { AppText, Button, Card, Chip, confirm, DateField, MoneyField, Screen, TextField, useToast } from '@/components/ui';
 import { DEFAULT_ANNUAL_LIMIT, REGIMES, type Regime } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
-import { useSession } from '@/features/auth/session';
+import { useSession, type MyOrganization } from '@/features/auth/session';
 import {
-  useBusinessSettings,
   useCreateInvite,
-  useDriverLinks,
-  useRevokeLink,
-  useSaveBusinessSettings,
+  useMembers,
+  useOrgSettings,
+  usePendingInvite,
+  useRemoveMember,
+  useRenameOrganization,
+  useRevokeInvite,
+  useSaveOrgSettings,
   useUpdateName,
 } from '@/features/settings/api';
-import type { BusinessSettingsRow } from '@/lib/database.types';
+import type { OrganizationSettingsRow } from '@/lib/database.types';
 import { friendlyError } from '@/lib/supabase';
 import { colors, radius } from '@/theme/tokens';
 
 export default function Profile() {
-  const { profile, session, isAnalyst, signOut } = useSession();
+  const { session, signOut, activeOrg } = useSession();
   return (
     <Screen>
       <AppText variant="heading">Perfil</AppText>
       <PersonalCard />
-      {isAnalyst ? <AnalystLinks /> : <BusinessCard />}
-      {!isAnalyst ? <InviteCard /> : null}
+      {activeOrg ? (
+        <>
+          <OrganizationCard key={`org-${activeOrg.id}`} org={activeOrg} />
+          <MembersCard org={activeOrg} />
+          <BusinessCard orgId={activeOrg.id} />
+        </>
+      ) : null}
+      <OtherOrganizationsCard />
       <Card>
         <AppText variant="small" color={colors.textMuted}>
           Conectado como {session?.user.email}
-          {profile ? ` · ${profile.role === 'analyst' ? 'Analista' : 'Fretista'}` : ''}
         </AppText>
         <Button
           title="Sair da conta"
@@ -48,6 +57,8 @@ export default function Profile() {
   );
 }
 
+// ---------------------------------------------------------------------------
+
 function PersonalCard() {
   const { profile } = useSession();
   // remonta quando o nome salvo muda, para o campo começar com o valor atual
@@ -55,15 +66,15 @@ function PersonalCard() {
 }
 
 function PersonalForm({ savedName }: { savedName: string }) {
-  const { userId, profile } = useSession();
+  const { userId } = useSession();
   const [name, setName] = useState(savedName);
   const update = useUpdateName();
   const toast = useToast();
-  const changed = name.trim() && name.trim() !== profile?.name;
+  const changed = name.trim() && name.trim() !== savedName;
   return (
     <Card>
       <AppText variant="title">Seus dados</AppText>
-      <TextField label="Nome" value={name} onChangeText={setName} autoComplete="name" />
+      <TextField label="Seu nome" value={name} onChangeText={setName} autoComplete="name" />
       {changed ? (
         <Button
           title="Salvar nome"
@@ -84,17 +95,186 @@ function PersonalForm({ savedName }: { savedName: string }) {
   );
 }
 
-/** Enquadramento do negócio e limite anual (RF-08). */
-function BusinessCard() {
-  const { userId } = useSession();
-  const settings = useBusinessSettings(userId);
-  if (settings.isLoading) return null;
-  return <BusinessForm key={settings.data?.updated_at ?? 'novo'} saved={settings.data ?? null} />;
+// ---------------------------------------------------------------------------
+
+function OrganizationCard({ org }: { org: MyOrganization }) {
+  const [name, setName] = useState(org.name);
+  const rename = useRenameOrganization();
+  const toast = useToast();
+  const changed = name.trim() && name.trim() !== org.name;
+  return (
+    <Card>
+      <View style={styles.head}>
+        <Ionicons name="business-outline" size={24} color={colors.primary} />
+        <AppText variant="title">Organização</AppText>
+      </View>
+      <TextField label="Nome da organização" value={name} onChangeText={setName} autoCapitalize="words" />
+      {changed ? (
+        <Button
+          title="Salvar nome"
+          size="md"
+          loading={rename.isPending}
+          onPress={() =>
+            rename.mutate(
+              { id: org.id, name: name.trim() },
+              {
+                onSuccess: () => toast({ message: 'Nome da organização atualizado!' }),
+                onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
+              },
+            )
+          }
+        />
+      ) : null}
+    </Card>
+  );
 }
 
-function BusinessForm({ saved }: { saved: BusinessSettingsRow | null }) {
-  const { userId } = useSession();
-  const save = useSaveBusinessSettings();
+/** Membros e convite por código enviado pelo WhatsApp. */
+function MembersCard({ org }: { org: MyOrganization }) {
+  const { userId, setActiveOrgId, organizations } = useSession();
+  const members = useMembers(org.id);
+  const invite = usePendingInvite(org.id);
+  const create = useCreateInvite();
+  const revokeInvite = useRevokeInvite();
+  const remove = useRemoveMember();
+  const toast = useToast();
+  const isOwner = org.role === 'owner';
+
+  const pending = invite.data;
+  const message = pending
+    ? `Oi! Entre na organização "${org.name}" no app Rodata usando o código ${pending.code}. Vale por 7 dias.`
+    : '';
+
+  async function leave() {
+    const ok = await confirm(
+      'Sair da organização?',
+      `Você deixará de ver as viagens de "${org.name}". Para voltar, vai precisar de um novo convite.`,
+      'Sair',
+    );
+    if (!ok || !userId) return;
+    remove.mutate(
+      { orgId: org.id, userId },
+      {
+        onSuccess: () => {
+          const next = organizations.find((o) => o.id !== org.id);
+          if (next) setActiveOrgId(next.id);
+          else router.replace('/comecar');
+          toast({ message: 'Você saiu da organização.' });
+        },
+        onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <View style={styles.head}>
+        <Ionicons name="people-outline" size={24} color={colors.primary} />
+        <AppText variant="title">Pessoas</AppText>
+      </View>
+      <AppText variant="small" color={colors.textMuted}>
+        Todos aqui podem lançar viagens, editar e ver os números.
+      </AppText>
+
+      {(members.data ?? []).map((m) => (
+        <View key={m.userId} style={styles.memberRow}>
+          <View style={styles.avatar}>
+            <AppText variant="label" color="#FFFFFF">
+              {m.name.charAt(0).toUpperCase()}
+            </AppText>
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText variant="label">
+              {m.name}
+              {m.userId === userId ? ' (você)' : ''}
+            </AppText>
+            {m.role === 'owner' ? (
+              <AppText variant="small" color={colors.textMuted}>
+                Criou a organização
+              </AppText>
+            ) : null}
+          </View>
+          {isOwner && m.userId !== userId && m.role !== 'owner' ? (
+            <Button
+              title="Remover"
+              variant="danger"
+              size="md"
+              onPress={async () => {
+                if (await confirm('Remover pessoa?', `${m.name} não verá mais os dados de "${org.name}".`, 'Remover'))
+                  remove.mutate(
+                    { orgId: org.id, userId: m.userId },
+                    {
+                      onSuccess: () => toast({ message: `${m.name} foi removido(a).` }),
+                      onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
+                    },
+                  );
+              }}
+            />
+          ) : null}
+        </View>
+      ))}
+
+      {pending ? (
+        <View style={styles.codeBox}>
+          <AppText variant="small" color={colors.textMuted}>
+            Código de convite (vale {formatDistanceToNowStrict(new Date(pending.expires_at), { locale: ptBR })})
+          </AppText>
+          <AppText style={styles.code} selectable accessibilityLabel={`Código ${pending.code.split('').join(' ')}`}>
+            {pending.code}
+          </AppText>
+          <Button
+            title="Enviar pelo WhatsApp"
+            icon="logo-whatsapp"
+            onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`)}
+          />
+          <Button
+            title="Copiar código"
+            variant="secondary"
+            size="md"
+            icon="copy-outline"
+            onPress={async () => {
+              await Clipboard.setStringAsync(pending.code);
+              toast({ message: 'Código copiado!' });
+            }}
+          />
+          <Button
+            title="Cancelar convite"
+            variant="ghost"
+            size="md"
+            onPress={() => revokeInvite.mutate(pending)}
+          />
+        </View>
+      ) : (
+        <Button
+          title="Convidar pessoa"
+          variant="secondary"
+          icon="person-add-outline"
+          loading={create.isPending}
+          accessibilityHint="Gera um código para enviar pelo WhatsApp"
+          onPress={() =>
+            create.mutate(org.id, { onError: (e) => toast({ tone: 'error', message: friendlyError(e) }) })
+          }
+        />
+      )}
+
+      {!isOwner ? (
+        <Button title="Sair desta organização" variant="ghost" size="md" icon="exit-outline" onPress={leave} />
+      ) : null}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** Enquadramento do negócio e limite anual (RF-08). */
+function BusinessCard({ orgId }: { orgId: string }) {
+  const settings = useOrgSettings(orgId);
+  if (settings.isLoading) return null;
+  return <BusinessForm key={`${orgId}-${settings.data?.updated_at ?? 'novo'}`} orgId={orgId} saved={settings.data ?? null} />;
+}
+
+function BusinessForm({ orgId, saved }: { orgId: string; saved: OrganizationSettingsRow | null }) {
+  const save = useSaveOrgSettings();
   const toast = useToast();
   const [regime, setRegime] = useState<Regime>(saved?.regime ?? 'mei_tac');
   const [openedAt, setOpenedAt] = useState(saved?.cnpj_opened_at ?? '');
@@ -102,7 +282,10 @@ function BusinessForm({ saved }: { saved: BusinessSettingsRow | null }) {
 
   return (
     <Card>
-      <AppText variant="title">Meu negócio</AppText>
+      <View style={styles.head}>
+        <Ionicons name="speedometer-outline" size={24} color={colors.primary} />
+        <AppText variant="title">Tipo de empresa</AppText>
+      </View>
       <AppText variant="small" color={colors.textMuted}>
         Usamos isso para calcular quanto falta para o limite do ano.
       </AppText>
@@ -146,13 +329,13 @@ function BusinessForm({ saved }: { saved: BusinessSettingsRow | null }) {
         onPress={() =>
           save.mutate(
             {
-              driver_id: userId!,
+              org_id: orgId,
               regime,
               cnpj_opened_at: openedAt || null,
               annual_limit_cents: customLimit > 0 ? customLimit : null,
             },
             {
-              onSuccess: () => toast({ message: 'Dados do negócio salvos!' }),
+              onSuccess: () => toast({ message: 'Dados da empresa salvos!' }),
               onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
             },
           )
@@ -162,128 +345,44 @@ function BusinessForm({ saved }: { saved: BusinessSettingsRow | null }) {
   );
 }
 
-/** Fretista convida o analista por código enviado no WhatsApp (RF-06). */
-function InviteCard() {
-  const { userId } = useSession();
-  const links = useDriverLinks(userId, true);
-  const create = useCreateInvite();
-  const revoke = useRevokeLink();
-  const toast = useToast();
+// ---------------------------------------------------------------------------
 
-  const active = (links.data ?? []).filter((l) => l.status === 'active');
-  const pending = (links.data ?? []).find((l) => l.status === 'pending' && new Date(l.expires_at) > new Date());
-
-  const message = pending
-    ? `Oi! Use o código ${pending.invite_code} no app Rodata (Perfil → código de convite) para acompanhar minhas viagens. Vale por 7 dias.`
-    : '';
-
+function OtherOrganizationsCard() {
+  const { organizations, activeOrg, setActiveOrgId } = useSession();
+  const [joining, setJoining] = useState(false);
   return (
     <Card>
-      <AppText variant="title">Analista</AppText>
-      <AppText variant="small" color={colors.textMuted}>
-        Quem você convidar poderá ver suas viagens e números, mas não pode alterar nada.
-      </AppText>
-
-      {active.map((l) => (
-        <View key={l.id} style={styles.linkRow}>
-          <Ionicons name="person-circle-outline" size={32} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <AppText variant="label">{l.analyst?.name || 'Analista'}</AppText>
-            <AppText variant="small" color={colors.textMuted}>
-              Acompanha seus números
-            </AppText>
-          </View>
-          <Button
-            title="Remover"
-            variant="danger"
-            size="md"
-            onPress={async () => {
-              if (await confirm('Remover acesso?', `${l.analyst?.name || 'O analista'} não verá mais seus dados.`, 'Remover'))
-                revoke.mutate(l.id, { onSuccess: () => toast({ message: 'Acesso removido.' }) });
-            }}
-          />
-        </View>
-      ))}
-
-      {pending ? (
-        <View style={styles.codeBox}>
+      <AppText variant="title">Outras organizações</AppText>
+      {organizations.length > 1 ? (
+        <>
           <AppText variant="small" color={colors.textMuted}>
-            Código de convite (vale {formatDistanceToNowStrict(new Date(pending.expires_at), { locale: ptBR })})
+            Escolha qual organização ver:
           </AppText>
-          <AppText style={styles.code} selectable accessibilityLabel={`Código ${pending.invite_code.split('').join(' ')}`}>
-            {pending.invite_code}
-          </AppText>
-          <Button
-            title="Enviar pelo WhatsApp"
-            icon="logo-whatsapp"
-            onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`)}
-          />
-          <Button
-            title="Copiar código"
-            variant="secondary"
-            size="md"
-            icon="copy-outline"
-            onPress={async () => {
-              await Clipboard.setStringAsync(pending.invite_code);
-              toast({ message: 'Código copiado!' });
-            }}
-          />
-        </View>
-      ) : (
-        <Button
-          title={active.length ? 'Convidar outro analista' : 'Convidar analista'}
-          variant="secondary"
-          icon="person-add-outline"
-          loading={create.isPending}
-          onPress={() => create.mutate(undefined, { onError: (e) => toast({ tone: 'error', message: friendlyError(e) }) })}
-        />
-      )}
-    </Card>
-  );
-}
-
-function AnalystLinks() {
-  const { linkedDrivers, activeDriverId, setActiveDriverId } = useSession();
-  const revoke = useRevokeLink();
-  const toast = useToast();
-  return (
-    <Card>
-      <AppText variant="title">Fretistas que acompanho</AppText>
-      {linkedDrivers.length === 0 ? (
-        <AppText color={colors.textMuted}>Nenhum ainda. Digite abaixo o código que o fretista enviou.</AppText>
-      ) : (
-        linkedDrivers.map((d) => (
-          <View key={d.id} style={styles.linkRow}>
-            <Pressable
-              accessibilityRole="radio"
-              accessibilityState={{ checked: d.id === activeDriverId }}
-              onPress={() => setActiveDriverId(d.id)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minHeight: 48 }}>
-              <Ionicons
-                name={d.id === activeDriverId ? 'radio-button-on' : 'radio-button-off'}
-                size={24}
-                color={d.id === activeDriverId ? colors.primaryStrong : colors.borderStrong}
-              />
-              <AppText variant="label">{d.name}</AppText>
-            </Pressable>
-            <Button
-              title="Parar"
-              variant="danger"
-              size="md"
-              onPress={async () => {
-                if (await confirm('Parar de acompanhar?', `Você deixará de ver os dados de ${d.name}.`, 'Parar'))
-                  revoke.mutate(d.linkId, { onSuccess: () => toast({ message: 'Pronto.' }) });
-              }}
-            />
+          <View style={styles.chips}>
+            {organizations.map((o) => (
+              <Chip key={o.id} label={o.name} selected={o.id === activeOrg?.id} onPress={() => setActiveOrgId(o.id)} />
+            ))}
           </View>
-        ))
+        </>
+      ) : (
+        <AppText variant="small" color={colors.textMuted}>
+          Cuida de mais de um negócio? Você pode participar de várias organizações.
+        </AppText>
       )}
-      <AcceptInvite />
+      {joining ? (
+        <AcceptInvite onJoined={() => setJoining(false)} />
+      ) : (
+        <View style={{ gap: 10 }}>
+          <Button title="Entrar com código de convite" variant="secondary" size="md" icon="enter-outline" onPress={() => setJoining(true)} />
+          <Button title="Criar nova organização" variant="ghost" size="md" icon="add" onPress={() => router.push({ pathname: '/comecar', params: { nova: '1' } })} />
+        </View>
+      )}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -295,7 +394,16 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   optionSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  codeBox: { gap: 12, padding: 16, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'stretch' },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeBox: { gap: 12, padding: 16, borderRadius: radius.md, backgroundColor: colors.background },
   code: { fontSize: 36, fontWeight: '800', letterSpacing: 6, textAlign: 'center', color: colors.text },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

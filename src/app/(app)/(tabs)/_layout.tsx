@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import type { ColorValue } from 'react-native';
+import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
+
+import { useSession } from '@/features/auth/session';
 
 import { colors } from '@/theme/tokens';
 
@@ -15,6 +18,9 @@ function icon(active: IconName, inactive: IconName) {
 
 /** Barra inferior com ícone + texto (RNF-04). */
 export default function TabsLayout() {
+  const { organizationsLoaded, organizations } = useSession();
+  // ainda não faz parte de nenhuma organização: criar uma ou entrar com código
+  if (organizationsLoaded && organizations.length === 0) return <Redirect href="/comecar" />;
   return (
     <Tabs
       screenOptions={{

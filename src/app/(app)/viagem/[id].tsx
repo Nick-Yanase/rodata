@@ -8,7 +8,8 @@ import { AppText, Button, Card, confirm, DateField, EmptyState, MoneyField, Scre
 import { toISODate } from '@/domain/dates';
 import { COST_CATEGORIES, type CostCategory } from '@/domain/metrics';
 import { formatBRL, sumCents } from '@/domain/money';
-import { useActiveDriver } from '@/features/auth/session';
+import { useActiveOrg, useSession } from '@/features/auth/session';
+import { useAuthorLabel } from '@/features/settings/api';
 import { toRow, useDeleteTrip, useSaveTrip, useTrip } from '@/features/trips/api';
 import type { TripRow } from '@/lib/database.types';
 import { goBack } from '@/lib/navigation';
@@ -91,7 +92,9 @@ function TripForm({
   existing?: TripRow;
   initial: Form;
 }) {
-  const { driverId, readOnly } = useActiveDriver();
+  const { orgId } = useActiveOrg();
+  const { userId } = useSession();
+  const authorOf = useAuthorLabel(orgId, userId);
   const save = useSaveTrip();
   const del = useDeleteTrip();
   const toast = useToast();
@@ -106,7 +109,6 @@ function TripForm({
 
   const cost = sumCents(form.fuel_cents, form.toll_cents, form.food_cents, form.maintenance_cents, form.other_cents);
   const net = form.freight_cents - cost;
-  const canEdit = !readOnly;
 
   function onSave() {
     const e: typeof errors = {};
@@ -114,12 +116,12 @@ function TripForm({
     if (!form.trip_date) e.trip_date = 'Escolha a data da viagem.';
     const km = form.km ? Number.parseInt(form.km.replace(/\D/g, ''), 10) : null;
     setErrors(e);
-    if (Object.keys(e).length || !driverId) return;
+    if (Object.keys(e).length || !orgId) return;
 
     const row = toRow(
       {
         id: isNew ? newId() : id,
-        driver_id: driverId,
+        org_id: existing?.org_id ?? orgId,
         title: form.title.trim(),
         origin: form.origin.trim(),
         destination: form.destination.trim(),
@@ -132,6 +134,7 @@ function TripForm({
         other_cents: form.other_cents,
         km,
       },
+      userId,
       existing,
     );
     // Não espera a internet: a viagem aparece na hora e é enviada em segundo plano.
@@ -158,14 +161,20 @@ function TripForm({
     });
   }
 
-  const title = isNew ? (copied ? 'Repetir viagem' : 'Nova viagem') : canEdit ? 'Editar viagem' : 'Viagem';
+  const title = isNew ? (copied ? 'Repetir viagem' : 'Nova viagem') : 'Editar viagem';
+  const author = existing ? authorOf(existing.created_by) : undefined;
 
   return (
     <Screen
       edges={['bottom']}
-      footer={canEdit ? <Button title="Salvar viagem" icon="checkmark-circle" onPress={onSave} /> : undefined}>
+      footer={<Button title="Salvar viagem" icon="checkmark-circle" onPress={onSave} />}>
       <Stack.Screen options={{ title }} />
 
+      {author ? (
+        <AppText variant="small" color={colors.textMuted}>
+          Lançada por {author}
+        </AppText>
+      ) : null}
       <Card>
         <AppText variant="title">Dados principais</AppText>
         <TextField
@@ -173,7 +182,7 @@ function TripForm({
           value={form.destination}
           onChangeText={(t) => set('destination', t)}
           placeholder="Ex.: Presidente Prudente - SP"
-          editable={canEdit}
+         
           optional
           autoCapitalize="words"
         />
@@ -183,15 +192,15 @@ function TripForm({
           onChange={(v) => set('freight_cents', v)}
           error={errors.freight_cents}
           hint="Quanto o cliente pagou pela viagem"
-          editable={canEdit}
+         
         />
-        <DateField label="Data da viagem" value={form.trip_date} onChange={(v) => set('trip_date', v)} error={errors.trip_date} editable={canEdit} />
+        <DateField label="Data da viagem" value={form.trip_date} onChange={(v) => set('trip_date', v)} error={errors.trip_date} />
         <TextField
           label="De onde saiu?"
           value={form.origin}
           onChangeText={(t) => set('origin', t)}
           placeholder="Ex.: Bauru - SP"
-          editable={canEdit}
+         
           optional
           autoCapitalize="words"
         />
@@ -200,7 +209,7 @@ function TripForm({
           value={form.title}
           onChangeText={(t) => set('title', t)}
           placeholder="Ex.: Carga de soja – cliente João"
-          editable={canEdit}
+         
           optional
         />
       </Card>
@@ -217,7 +226,7 @@ function TripForm({
             value={form[`${c.id}_cents`]}
             onChange={(v) => set(`${c.id}_cents`, v)}
             optional
-            editable={canEdit}
+           
           />
         ))}
         <TextField
@@ -227,7 +236,7 @@ function TripForm({
           keyboardType="number-pad"
           inputMode="numeric"
           placeholder="Ex.: 540"
-          editable={canEdit}
+         
           optional
         />
       </Card>
@@ -250,7 +259,7 @@ function TripForm({
         ) : null}
       </Card>
 
-      {!isNew && canEdit && existing ? (
+      {!isNew && existing ? (
         <View style={styles.actions}>
           <Button
             title="Repetir esta viagem"

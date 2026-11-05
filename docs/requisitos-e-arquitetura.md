@@ -51,9 +51,9 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 | RF-02 | Login com e-mail e senha; sessão mantida no aparelho (não pedir login toda hora). | M |
 | RF-03 | Recuperar senha por e-mail. | M |
 | RF-04 | Login sem senha por **link mágico / código no e-mail** e **"Entrar com Google"** (reduz senha esquecida — dor comum da persona fretista). | V2 |
-| RF-05 | Perfil com dois papéis: **fretista** e **analista**. | M |
-| RF-06 | Fretista convida analista por **link/código compartilhável pelo WhatsApp**; analista aceita e passa a ver os dados daquele fretista. Fretista pode revogar o acesso. | M |
-| RF-07 | Analista pode acompanhar **vários fretistas** e alternar entre eles. | V2 |
+| RF-05 | **Organização**: os dados (viagens, anotações, configuração do MEI) pertencem a uma organização — o negócio de frete. Qualquer pessoa cria uma organização e vira membro dela. Não há papéis separados: fretista e analista usam **a mesma visão**. | M |
+| RF-06 | Qualquer membro convida outra pessoa por **código de 6 letras enviado pelo WhatsApp** (vale 7 dias, uso único). Quem criou a organização pode remover membros; qualquer membro pode sair. | M |
+| RF-07 | Uma pessoa pode participar de **várias organizações** e alternar entre elas (ex.: analista que cuida de vários fretistas). | M |
 | RF-08 | Cadastro do negócio: tipo de enquadramento (MEI comum, **MEI Transportador Autônomo de Cargas**, ME, outro), data de abertura do CNPJ e limite anual (pré-preenchido, editável). | M |
 
 ### 2.2 Viagens (fonte principal dos dados)
@@ -82,7 +82,7 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 | RF-30 | Criar, editar, excluir anotação com título, data e texto. | M |
 | RF-31 | Buscar anotações por título/conteúdo. | M |
 | RF-32 | Vincular anotação a uma viagem (opcional). | V2 |
-| RF-33 | Analista pode comentar/anotar sobre o mês ou viagem do fretista. | V2 |
+| RF-33 | Mostrar quem lançou cada viagem e quem escreveu cada anotação. | M |
 
 ### 2.4 Dashboard e análises
 
@@ -119,8 +119,9 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 - **RN-03 Variação %** = `(atual − comparado) / comparado`; se o comparado for zero, mostrar "—" e não "∞".
 - **RN-04 Previsão**: só exibir com pelo menos 3 meses de histórico; com menos, mostrar "Precisamos de mais
   meses de dados para prever". Com ≥ 12 meses, considerar sazonalidade.
-- **RN-05 Permissões**: fretista é dono dos dados; analista vinculado tem **leitura** dos dados e escrita só em
-  anotações/comentários próprios (V2: permitir que o analista também lance dados, se o fretista autorizar).
+- **RN-05 Permissões**: todo membro da organização pode **tudo** nos dados dela — lançar, editar e excluir
+  viagens e anotações (o analista pode lançar uma viagem que o fretista esqueceu) e alterar a configuração
+  do MEI. O criador (dono) pode remover membros; ninguém remove o dono.
 - **RN-06 Valores** armazenados em **centavos (inteiro)** para não haver erro de arredondamento.
 - **RN-07 Datas** no fuso `America/Sao_Paulo`; exibição dd/mm/aaaa.
 
@@ -174,7 +175,7 @@ Observações:
 | ID | Requisito |
 |---|---|
 | RNF-30 | Offline-first no mobile, sem perda de dados (fila de envio persistente). |
-| RNF-31 | Isolamento de dados por usuário com **Row Level Security** no Postgres (fretista só vê o seu; analista só vê fretistas que o convidaram). |
+| RNF-31 | Isolamento de dados por organização com **Row Level Security** no Postgres: só membros veem e alteram os dados da organização. |
 | RNF-32 | HTTPS em tudo; senhas gerenciadas pelo provedor de autenticação (nunca armazenadas pela aplicação). |
 | RNF-33 | **LGPD**: termo de uso e política de privacidade no cadastro, exportação dos próprios dados e **exclusão de conta** (também exigido pelas lojas de apps). |
 | RNF-34 | Backup diário do banco (exportação automática via GitHub Actions para armazenamento externo, pois o plano gratuito não oferece restauração point-in-time). |
@@ -246,81 +247,72 @@ flowchart LR
 
 ```mermaid
 erDiagram
-  profiles ||--o{ trips : "registra"
-  profiles ||--o{ notes : "escreve"
-  profiles ||--o| business_settings : "tem"
-  profiles ||--o{ analyst_links : "fretista"
-  profiles ||--o{ analyst_links : "analista"
-  trips ||--o{ trip_expenses : "tem"
-  trip_expenses ||--o| receipts : "comprovante"
-  profiles ||--o{ fixed_expenses : "tem"
+  organizations ||--o{ organization_members : "tem"
+  profiles ||--o{ organization_members : "participa"
+  organizations ||--o{ organization_invites : "convida"
+  organizations ||--|| organization_settings : "configura"
+  organizations ||--o{ trips : "tem"
+  organizations ||--o{ notes : "tem"
+  profiles ||--o{ trips : "lançou"
+  profiles ||--o{ notes : "escreveu"
 
   profiles {
     uuid id PK "= auth.users.id"
     text name
-    text role "driver | analyst"
-    timestamptz created_at
   }
-  business_settings {
-    uuid driver_id PK
+  organizations {
+    uuid id PK
+    text name
+    uuid created_by FK
+  }
+  organization_members {
+    uuid org_id PK
+    uuid user_id PK
+    text role "owner | member"
+  }
+  organization_invites {
+    uuid id PK
+    uuid org_id FK
+    text code "6 letras, único"
+    text status "pending | used | revoked"
+    timestamptz expires_at
+  }
+  organization_settings {
+    uuid org_id PK
     text regime "mei | mei_tac | me | other"
     date cnpj_opened_at
     bigint annual_limit_cents
   }
-  analyst_links {
-    uuid id PK
-    uuid driver_id FK
-    uuid analyst_id FK
-    text status "pending | active | revoked"
-    text invite_code
-  }
   trips {
     uuid id PK "gerado no aparelho (offline)"
-    uuid driver_id FK
+    uuid org_id FK
+    uuid created_by FK
     text title
     text origin
     text destination
     date trip_date
     bigint freight_cents
-    text payment_status "pending | received"
-    date received_at
+    bigint fuel_cents
+    bigint toll_cents
+    bigint food_cents
+    bigint maintenance_cents
+    bigint other_cents
+    bigint cost_cents "calculado"
     int km
-    timestamptz updated_at
-    timestamptz deleted_at "soft delete p/ sync"
-  }
-  trip_expenses {
-    uuid id PK
-    uuid trip_id FK
-    text category "fuel | toll | food | maintenance | other"
-    bigint amount_cents
-    numeric liters
-  }
-  receipts {
-    uuid id PK
-    uuid expense_id FK
-    text storage_path
-  }
-  fixed_expenses {
-    uuid id PK
-    uuid driver_id FK
-    text description
-    bigint amount_cents
-    text recurrence "monthly | yearly | once"
-    date starts_at
   }
   notes {
     uuid id PK
+    uuid org_id FK
     uuid author_id FK
-    uuid driver_id FK
-    uuid trip_id FK "opcional"
     text title
     text body
     date note_date
   }
 ```
 
-Índices principais: `trips (driver_id, trip_date)`, `trips (driver_id, received_at)`,
-`trip_expenses (trip_id)`, busca textual com `pg_trgm` em `trips.title/destination` e `notes.title/body`.
+V2: `trip_expenses` (vários abastecimentos por viagem), `receipts` (fotos) e `fixed_expenses` (custos fixos).
+
+Índices principais: `trips (org_id, trip_date)`, `notes (org_id, note_date)`, busca textual com `pg_trgm` em `trips.title/destination` e `notes.title/body`.
 
 ### 4.4 Camada de análise (no Postgres)
 
@@ -437,8 +429,8 @@ tela inicial).
 
 ## 6. Diretrizes de UI para as personas (ajustes sugeridos ao design)
 
-1. **Home do fretista ≠ Home do analista.** Fretista: um card grande "Sobrou este mês" (receita faturada), termômetro do MEI,
-   botão enorme **"+ Nova viagem"**, últimas viagens. Analista: dashboard completo (comparativos,
+1. **Uma visão só para todos os membros** (decisão do cliente): resumo em linguagem simples no topo, botão enorme
+   **"+ Nova viagem"** e, abaixo, o dashboard completo (comparativos,
    timeline, previsões), aproveitando a largura da tela no computador.
 2. **Barra inferior com rótulos** (Início · Viagens · Anotações · Perfil) e o "+" central em destaque.
 3. **Formulário de viagem em blocos grandes**, valores com R$ automático, data já preenchida com hoje,
@@ -476,6 +468,10 @@ tela inicial).
 
 ### Decisões tomadas durante a implementação
 
+- **Organizações em vez de papéis** (pedido do cliente, 05/11/2026): não existem mais visões separadas de
+  fretista e analista. Quem se cadastra cria uma organização ou entra numa com código de convite; todos os
+  membros podem lançar, editar e analisar. Cada viagem guarda quem a lançou.
+
 - **Custos da viagem em colunas** (`fuel_cents`, `toll_cents`, `food_cents`, `maintenance_cents`,
   `other_cents`) na própria tabela `trips`, com `cost_cents` calculado pelo banco. Mais simples
   para o MVP e para o modo offline. A tabela `trip_expenses` (vários abastecimentos por viagem,
@@ -488,7 +484,7 @@ tela inicial).
 
 ### Concluído
 
-RF-01, RF-02, RF-03, RF-05, RF-06, RF-07, RF-08, RF-10, RF-11, RF-13, RF-14, RF-15, RF-16, RF-17,
+RF-01, RF-02, RF-03, RF-05, RF-06, RF-07 (organizações), RF-08, RF-10, RF-11, RF-13, RF-14, RF-15, RF-16, RF-17,
 RF-20 (km rodados), RF-30, RF-31, RF-33, RF-40, RF-41, RF-42, RF-43, RF-44, RF-45, RF-50;
 RN-01 a RN-07; RNF-01 a RNF-08, RNF-20, RNF-21, RNF-30, RNF-31, RNF-40, RNF-41, RNF-42.
 

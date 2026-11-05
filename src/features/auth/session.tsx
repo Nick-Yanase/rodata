@@ -3,11 +3,11 @@ import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { ProfileRow } from '@/lib/database.types';
+import type { MemberRole, ProfileRow } from '@/lib/database.types';
 import { queryClient } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
 
-export type LinkedDriver = { linkId: string; id: string; name: string };
+export type MyOrganization = { id: string; name: string; role: MemberRole };
 
 type SessionContextValue = {
   /** true enquanto lê a sessão salva no aparelho */
@@ -15,31 +15,36 @@ type SessionContextValue = {
   session: Session | null;
   userId: string | null;
   profile: ProfileRow | null;
-  isAnalyst: boolean;
-  /** Fretista cujos dados estão na tela (o próprio, ou o escolhido pelo analista). */
-  activeDriverId: string | null;
-  activeDriverName: string | null;
-  setActiveDriverId: (id: string) => void;
-  linkedDrivers: LinkedDriver[];
+  /** Organizações de que o usuário faz parte. */
+  organizations: MyOrganization[];
+  /** true quando a lista de organizações já foi carregada (mesmo que vazia). */
+  organizationsLoaded: boolean;
+  /** Organização cujos dados estão na tela. */
+  activeOrg: MyOrganization | null;
+  setActiveOrgId: (id: string) => void;
   signOut: () => Promise<void>;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-const ACTIVE_DRIVER_KEY = 'rodata-active-driver';
+const ACTIVE_ORG_KEY = 'rodata-active-org';
+
+export const orgKeys = {
+  mine: (userId: string | null) => ['organizations', 'mine', userId] as const,
+};
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [chosenDriver, setChosenDriver] = useState<string | null>(null);
+  const [chosenOrg, setChosenOrg] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
-    AsyncStorage.getItem(ACTIVE_DRIVER_KEY)
-      .then(setChosenDriver)
+    AsyncStorage.getItem(ACTIVE_ORG_KEY)
+      .then(setChosenOrg)
       .catch(() => {});
     const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => data.subscription.unsubscribe();
@@ -57,59 +62,47 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const profile = profileQuery.data ?? null;
-  // Enquanto o perfil não carrega, usa o papel informado no cadastro.
-  const role = profile?.role ?? (session?.user.user_metadata?.role as ProfileRow['role'] | undefined) ?? 'driver';
-  const isAnalyst = role === 'analyst';
-
-  const linksQuery = useQuery({
-    queryKey: ['linked-drivers', userId],
-    enabled: Boolean(userId) && isAnalyst,
-    queryFn: async (): Promise<LinkedDriver[]> => {
+  const orgsQuery = useQuery({
+    queryKey: orgKeys.mine(userId),
+    enabled: Boolean(userId),
+    queryFn: async (): Promise<MyOrganization[]> => {
       const { data, error } = await supabase
-        .from('analyst_links')
-        .select('id, driver_id, driver:profiles!analyst_links_driver_id_fkey(name)')
-        .eq('analyst_id', userId!)
-        .eq('status', 'active')
-        .order('accepted_at', { ascending: true });
+        .from('organization_members')
+        .select('role, organization:organizations(id, name)')
+        .eq('user_id', userId!)
+        .order('joined_at', { ascending: true });
       if (error) throw error;
-      return (data ?? []).map((l) => {
-        const row = l as unknown as { id: string; driver_id: string; driver: { name: string } | null };
-        return { linkId: row.id, id: row.driver_id, name: row.driver?.name || 'Fretista' };
+      return (data ?? []).flatMap((m) => {
+        const row = m as unknown as { role: MemberRole; organization: { id: string; name: string } | null };
+        return row.organization ? [{ ...row.organization, role: row.role }] : [];
       });
     },
   });
 
-  const linkedDrivers = useMemo(() => linksQuery.data ?? [], [linksQuery.data]);
+  const organizations = useMemo(() => orgsQuery.data ?? [], [orgsQuery.data]);
 
-  const activeDriverId = useMemo(() => {
-    if (!userId) return null;
-    if (!isAnalyst) return userId;
-    if (chosenDriver && linkedDrivers.some((d) => d.id === chosenDriver)) return chosenDriver;
-    return linkedDrivers[0]?.id ?? null;
-  }, [userId, isAnalyst, chosenDriver, linkedDrivers]);
-
-  const activeDriverName = isAnalyst
-    ? (linkedDrivers.find((d) => d.id === activeDriverId)?.name ?? null)
-    : (profile?.name ?? null);
+  const activeOrg = useMemo(
+    () => organizations.find((o) => o.id === chosenOrg) ?? organizations[0] ?? null,
+    [organizations, chosenOrg],
+  );
 
   const value: SessionContextValue = {
     loading,
     session,
     userId,
-    profile,
-    isAnalyst,
-    activeDriverId,
-    activeDriverName,
-    setActiveDriverId: (id) => {
-      setChosenDriver(id);
-      AsyncStorage.setItem(ACTIVE_DRIVER_KEY, id).catch(() => {});
+    profile: profileQuery.data ?? null,
+    organizations,
+    // com cache offline, os dados podem existir mesmo sem a consulta ter terminado
+    organizationsLoaded: orgsQuery.data !== undefined,
+    activeOrg,
+    setActiveOrgId: (id) => {
+      setChosenOrg(id);
+      AsyncStorage.setItem(ACTIVE_ORG_KEY, id).catch(() => {});
     },
-    linkedDrivers,
     signOut: async () => {
       await supabase.auth.signOut();
       queryClient.clear();
-      await AsyncStorage.removeItem(ACTIVE_DRIVER_KEY).catch(() => {});
+      await AsyncStorage.removeItem(ACTIVE_ORG_KEY).catch(() => {});
     },
   };
 
@@ -122,8 +115,8 @@ export function useSession() {
   return ctx;
 }
 
-/** Atalho para telas que só fazem sentido com um fretista selecionado. */
-export function useActiveDriver() {
-  const { activeDriverId, activeDriverName, isAnalyst } = useSession();
-  return { driverId: activeDriverId, driverName: activeDriverName, readOnly: isAnalyst };
+/** Atalho para telas que trabalham com a organização ativa. */
+export function useActiveOrg() {
+  const { activeOrg } = useSession();
+  return { orgId: activeOrg?.id ?? null, orgName: activeOrg?.name ?? null, role: activeOrg?.role ?? null };
 }

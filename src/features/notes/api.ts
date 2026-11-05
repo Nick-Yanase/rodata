@@ -6,13 +6,13 @@ import { supabase } from '@/lib/supabase';
 
 const PAGE_SIZE = 30;
 
-export function useNotes(driverId: string | null, search: string) {
+export function useNotes(orgId: string | null, search: string) {
   return useInfiniteQuery({
-    queryKey: ['notes', 'list', driverId ?? '', search],
-    enabled: Boolean(driverId),
+    queryKey: ['notes', 'list', orgId ?? '', search],
+    enabled: Boolean(orgId),
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      let q = supabase.from('notes').select('*').eq('driver_id', driverId!);
+      let q = supabase.from('notes').select('*').eq('org_id', orgId!);
       if (search.trim()) {
         const p = `%${search.replace(/[%_\\,()]/g, ' ').trim()}%`;
         q = q.or(`title.ilike.${p},body.ilike.${p}`);
@@ -58,7 +58,7 @@ queryClient.setMutationDefaults(['note', 'save'], {
   },
   onMutate: async (row: NoteRow) => {
     await queryClient.cancelQueries({ queryKey: ['notes'] });
-    queryClient.setQueriesData<InfiniteData<NoteRow[]>>({ queryKey: ['notes', 'list', row.driver_id] }, (data) => {
+    queryClient.setQueriesData<InfiniteData<NoteRow[]>>({ queryKey: ['notes', 'list', row.org_id] }, (data) => {
       if (!data) return data;
       let found = false;
       const pages = data.pages.map((p) =>

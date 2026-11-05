@@ -14,7 +14,7 @@ export function tripTitle(t: Pick<TripRow, 'title' | 'destination'>) {
 }
 
 /** Card da lista: frete, custo e receita faturada em destaque (RF-15). */
-export function TripCard({ trip, onPress }: { trip: TripRow; onPress: () => void }) {
+export function TripCard({ trip, author, onPress }: { trip: TripRow; author?: string; onPress: () => void }) {
   const net = tripNet(trip);
   const place = [trip.origin, trip.destination].filter(Boolean).join(' → ');
   return (
@@ -40,6 +40,7 @@ export function TripCard({ trip, onPress }: { trip: TripRow; onPress: () => void
             <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
             <AppText variant="small" color={colors.textMuted}>
               {formatDateBR(trip.trip_date)}
+              {author ? ` · lançada por ${author}` : ''}
             </AppText>
           </View>
         </View>

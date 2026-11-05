@@ -5,18 +5,18 @@ import { colors } from '@/theme/tokens';
 
 import { AppText, Chip } from './ui';
 
-/** Para o analista: escolher qual fretista está vendo (RF-07). */
-export function DriverSwitcher() {
-  const { isAnalyst, linkedDrivers, activeDriverId, setActiveDriverId } = useSession();
-  if (!isAnalyst || linkedDrivers.length < 2) return null;
+/** Para quem participa de mais de uma organização: escolher qual está vendo. */
+export function OrgSwitcher() {
+  const { organizations, activeOrg, setActiveOrgId } = useSession();
+  if (organizations.length < 2) return null;
   return (
     <View style={styles.wrap}>
       <AppText variant="small" color={colors.textMuted}>
-        Vendo os dados de:
+        Organização:
       </AppText>
       <View style={styles.row}>
-        {linkedDrivers.map((d) => (
-          <Chip key={d.id} label={d.name} selected={d.id === activeDriverId} onPress={() => setActiveDriverId(d.id)} />
+        {organizations.map((o) => (
+          <Chip key={o.id} label={o.name} selected={o.id === activeOrg?.id} onPress={() => setActiveOrgId(o.id)} />
         ))}
       </View>
     </View>

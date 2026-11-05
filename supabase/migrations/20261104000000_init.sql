@@ -1,5 +1,7 @@
 -- Rodata — esquema inicial
--- Valores monetários em centavos (bigint). Datas no fuso America/Sao_Paulo (date, sem hora).
+-- Os dados pertencem a uma ORGANIZAÇÃO (o negócio do fretista). Fretista e analista são
+-- membros da mesma organização e têm os mesmos poderes: lançar, editar e analisar.
+-- Valores monetários em centavos (bigint). Datas de calendário (date, sem hora).
 
 create extension if not exists pg_trgm with schema extensions;
 
@@ -9,21 +11,15 @@ create extension if not exists pg_trgm with schema extensions;
 create table public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
   name        text not null default '',
-  role        text not null default 'driver' check (role in ('driver', 'analyst')),
   created_at  timestamptz not null default now()
 );
 
--- Cria o perfil automaticamente quando alguém se cadastra.
--- O app envia { name, role } em options.data no signUp.
+-- Cria o perfil automaticamente no cadastro (o app envia { name } em options.data).
 create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.profiles (id, name, role)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data ->> 'name', ''),
-    case when new.raw_user_meta_data ->> 'role' = 'analyst' then 'analyst' else 'driver' end
-  );
+  insert into public.profiles (id, name)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''));
   return new;
 end;
 $$;
@@ -33,42 +29,64 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- ---------------------------------------------------------------------------
--- Vínculo fretista ↔ analista (convite por código)
+-- Organizações e membros
 -- ---------------------------------------------------------------------------
-create table public.analyst_links (
-  id           uuid primary key default gen_random_uuid(),
-  driver_id    uuid not null references public.profiles (id) on delete cascade,
-  analyst_id   uuid references public.profiles (id) on delete cascade,
-  invite_code  text not null unique,
-  status       text not null default 'pending' check (status in ('pending', 'active', 'revoked')),
-  expires_at   timestamptz not null default now() + interval '7 days',
-  accepted_at  timestamptz,
-  created_at   timestamptz not null default now()
+create table public.organizations (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null check (length(trim(name)) > 0),
+  created_by  uuid references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now()
 );
 
-create index analyst_links_driver_idx on public.analyst_links (driver_id);
-create index analyst_links_analyst_idx on public.analyst_links (analyst_id) where status = 'active';
-create unique index analyst_links_pair_uq on public.analyst_links (driver_id, analyst_id)
-  where status = 'active';
+create table public.organization_members (
+  org_id     uuid not null references public.organizations (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  -- owner: quem criou (pode remover outros membros). member: convidado.
+  role       text not null default 'member' check (role in ('owner', 'member')),
+  joined_at  timestamptz not null default now(),
+  primary key (org_id, user_id)
+);
 
--- Quem pode ver os dados de um fretista: ele mesmo ou um analista com vínculo ativo.
--- security definer para não entrar em recursão com as políticas de analyst_links.
-create function public.can_access_driver(p_driver uuid) returns boolean
+create index organization_members_user_idx on public.organization_members (user_id);
+
+-- O usuário logado é membro da organização?
+-- security definer para não entrar em recursão com as políticas de organization_members.
+create function public.is_member(p_org uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select p_driver = auth.uid()
-      or exists (
-        select 1 from public.analyst_links l
-        where l.driver_id = p_driver
-          and l.analyst_id = auth.uid()
-          and l.status = 'active'
-      );
+  select exists (
+    select 1 from public.organization_members m
+    where m.org_id = p_org and m.user_id = auth.uid()
+  );
 $$;
+
+create function public.is_owner(p_org uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.organization_members m
+    where m.org_id = p_org and m.user_id = auth.uid() and m.role = 'owner'
+  );
+$$;
+
+-- Convites por código (enviado pelo WhatsApp)
+create table public.organization_invites (
+  id          uuid primary key default gen_random_uuid(),
+  org_id      uuid not null references public.organizations (id) on delete cascade,
+  code        text not null unique,
+  created_by  uuid references public.profiles (id) on delete set null,
+  status      text not null default 'pending' check (status in ('pending', 'used', 'revoked')),
+  used_by     uuid references public.profiles (id) on delete set null,
+  used_at     timestamptz,
+  expires_at  timestamptz not null default now() + interval '7 days',
+  created_at  timestamptz not null default now()
+);
+
+create index organization_invites_org_idx on public.organization_invites (org_id);
 
 -- ---------------------------------------------------------------------------
 -- Configuração do negócio (enquadramento e limite anual)
 -- ---------------------------------------------------------------------------
-create table public.business_settings (
-  driver_id           uuid primary key references public.profiles (id) on delete cascade,
+create table public.organization_settings (
+  org_id              uuid primary key references public.organizations (id) on delete cascade,
   regime              text not null default 'mei_tac' check (regime in ('mei', 'mei_tac', 'me', 'other')),
   cnpj_opened_at      date,
   -- nulo = usar o limite padrão do regime (definido no app, src/domain/mei.ts)
@@ -77,12 +95,12 @@ create table public.business_settings (
 );
 
 -- ---------------------------------------------------------------------------
--- Viagens
--- id gerado no aparelho (permite criar viagem sem internet)
+-- Viagens — id gerado no aparelho (permite criar viagem sem internet)
 -- ---------------------------------------------------------------------------
 create table public.trips (
   id                 uuid primary key,
-  driver_id          uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  org_id             uuid not null references public.organizations (id) on delete cascade,
+  created_by         uuid default auth.uid() references public.profiles (id) on delete set null,
   title              text not null default '',
   origin             text not null default '',
   destination        text not null default '',
@@ -100,7 +118,7 @@ create table public.trips (
   updated_at         timestamptz not null default now()
 );
 
-create index trips_driver_date_idx on public.trips (driver_id, trip_date desc);
+create index trips_org_date_idx on public.trips (org_id, trip_date desc);
 create index trips_search_idx on public.trips
   using gin ((title || ' ' || origin || ' ' || destination) extensions.gin_trgm_ops);
 
@@ -109,8 +127,8 @@ create index trips_search_idx on public.trips
 -- ---------------------------------------------------------------------------
 create table public.notes (
   id          uuid primary key,
-  driver_id   uuid not null references public.profiles (id) on delete cascade,
-  author_id   uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  org_id      uuid not null references public.organizations (id) on delete cascade,
+  author_id   uuid default auth.uid() references public.profiles (id) on delete set null,
   title       text not null,
   body        text not null default '',
   note_date   date not null default current_date,
@@ -118,7 +136,7 @@ create table public.notes (
   updated_at  timestamptz not null default now()
 );
 
-create index notes_driver_date_idx on public.notes (driver_id, note_date desc);
+create index notes_org_date_idx on public.notes (org_id, note_date desc);
 create index notes_search_idx on public.notes
   using gin ((title || ' ' || body) extensions.gin_trgm_ops);
 
@@ -137,89 +155,103 @@ create trigger trips_touch before update on public.trips
   for each row execute function public.touch_updated_at();
 create trigger notes_touch before update on public.notes
   for each row execute function public.touch_updated_at();
-create trigger business_settings_touch before update on public.business_settings
+create trigger organization_settings_touch before update on public.organization_settings
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------------
--- Row Level Security
+-- Row Level Security: membro da organização pode tudo nos dados dela
 -- ---------------------------------------------------------------------------
-alter table public.profiles          enable row level security;
-alter table public.analyst_links     enable row level security;
-alter table public.business_settings enable row level security;
-alter table public.trips             enable row level security;
-alter table public.notes             enable row level security;
+alter table public.profiles              enable row level security;
+alter table public.organizations         enable row level security;
+alter table public.organization_members  enable row level security;
+alter table public.organization_invites  enable row level security;
+alter table public.organization_settings enable row level security;
+alter table public.trips                 enable row level security;
+alter table public.notes                 enable row level security;
 
--- perfis: o próprio, e os perfis com quem há vínculo ativo (nas duas direções)
+-- perfis: o próprio e os de quem está em alguma organização comigo
 create policy profiles_select on public.profiles for select to authenticated
   using (
     id = auth.uid()
-    or public.can_access_driver(id)
     or exists (
-      select 1 from public.analyst_links l
-      where l.analyst_id = profiles.id and l.driver_id = auth.uid() and l.status = 'active'
+      select 1 from public.organization_members mine
+      join public.organization_members theirs on theirs.org_id = mine.org_id
+      where mine.user_id = auth.uid() and theirs.user_id = profiles.id
     )
   );
 create policy profiles_update on public.profiles for update to authenticated
   using (id = auth.uid()) with check (id = auth.uid());
 
--- vínculos: fretista vê/cria/revoga os seus; analista vê os que aceitou
-create policy links_select on public.analyst_links for select to authenticated
-  using (driver_id = auth.uid() or analyst_id = auth.uid());
-create policy links_insert on public.analyst_links for insert to authenticated
-  with check (driver_id = auth.uid() and analyst_id is null and status = 'pending');
-create policy links_update on public.analyst_links for update to authenticated
-  using (driver_id = auth.uid() or analyst_id = auth.uid())
-  with check (status = 'revoked');
+-- organizações: membros veem e renomeiam; criação via create_organization(); dono exclui
+create policy orgs_select on public.organizations for select to authenticated
+  using (public.is_member(id));
+create policy orgs_update on public.organizations for update to authenticated
+  using (public.is_member(id)) with check (public.is_member(id));
+create policy orgs_delete on public.organizations for delete to authenticated
+  using (public.is_owner(id));
 
--- configuração: leitura por quem acessa o fretista; escrita só pelo fretista
-create policy settings_select on public.business_settings for select to authenticated
-  using (public.can_access_driver(driver_id));
-create policy settings_insert on public.business_settings for insert to authenticated
-  with check (driver_id = auth.uid());
-create policy settings_update on public.business_settings for update to authenticated
-  using (driver_id = auth.uid()) with check (driver_id = auth.uid());
+-- membros: veem os colegas; cada um pode sair; o dono remove outros
+-- (a entrada é sempre pelo accept_invite / create_organization)
+create policy members_select on public.organization_members for select to authenticated
+  using (public.is_member(org_id));
+create policy members_delete on public.organization_members for delete to authenticated
+  using (user_id = auth.uid() or (public.is_owner(org_id) and role <> 'owner'));
 
--- viagens: leitura por quem acessa o fretista; escrita só pelo fretista (RN-05)
-create policy trips_select on public.trips for select to authenticated
-  using (public.can_access_driver(driver_id));
-create policy trips_insert on public.trips for insert to authenticated
-  with check (driver_id = auth.uid());
-create policy trips_update on public.trips for update to authenticated
-  using (driver_id = auth.uid()) with check (driver_id = auth.uid());
-create policy trips_delete on public.trips for delete to authenticated
-  using (driver_id = auth.uid());
+-- convites: membros veem, criam (via create_invite) e cancelam
+create policy invites_select on public.organization_invites for select to authenticated
+  using (public.is_member(org_id));
+create policy invites_insert on public.organization_invites for insert to authenticated
+  with check (public.is_member(org_id) and created_by = auth.uid() and status = 'pending');
+create policy invites_update on public.organization_invites for update to authenticated
+  using (public.is_member(org_id)) with check (status = 'revoked');
 
--- anotações: leitura por quem acessa o fretista; fretista e analista escrevem as próprias
-create policy notes_select on public.notes for select to authenticated
-  using (public.can_access_driver(driver_id));
-create policy notes_insert on public.notes for insert to authenticated
-  with check (author_id = auth.uid() and public.can_access_driver(driver_id));
-create policy notes_update on public.notes for update to authenticated
-  using (author_id = auth.uid()) with check (author_id = auth.uid() and public.can_access_driver(driver_id));
-create policy notes_delete on public.notes for delete to authenticated
-  using (author_id = auth.uid());
+-- configuração, viagens e anotações: tudo para membros
+create policy settings_all on public.organization_settings for all to authenticated
+  using (public.is_member(org_id)) with check (public.is_member(org_id));
+create policy trips_all on public.trips for all to authenticated
+  using (public.is_member(org_id)) with check (public.is_member(org_id));
+create policy notes_all on public.notes for all to authenticated
+  using (public.is_member(org_id)) with check (public.is_member(org_id));
 
 -- ---------------------------------------------------------------------------
--- Convites
+-- Funções de organização
 -- ---------------------------------------------------------------------------
-create function public.create_invite() returns public.analyst_links
+create function public.create_organization(p_name text) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_org uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Faça login para criar a organização' using errcode = '28000';
+  end if;
+  insert into public.organizations (name, created_by)
+  values (trim(p_name), auth.uid())
+  returning id into v_org;
+  insert into public.organization_members (org_id, user_id, role)
+  values (v_org, auth.uid(), 'owner');
+  insert into public.organization_settings (org_id) values (v_org);
+  return v_org;
+end;
+$$;
+
+create function public.create_invite(p_org uuid) returns public.organization_invites
 language plpgsql security invoker set search_path = '' as $$
 declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; -- sem 0/O/1/I para não confundir
-  code text;
-  result public.analyst_links;
+  v_code text;
+  result public.organization_invites;
 begin
-  if auth.uid() is null then
-    raise exception 'Faça login para convidar' using errcode = '28000';
+  if not public.is_member(p_org) then
+    raise exception 'Você não faz parte desta organização' using errcode = '42501';
   end if;
   loop
-    code := '';
+    v_code := '';
     for i in 1..6 loop
-      code := code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+      v_code := v_code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
     end loop;
     begin
-      insert into public.analyst_links (driver_id, invite_code)
-      values (auth.uid(), code)
+      insert into public.organization_invites (org_id, code, created_by)
+      values (p_org, v_code, auth.uid())
       returning * into result;
       return result;
     exception when unique_violation then
@@ -232,30 +264,37 @@ $$;
 create function public.accept_invite(p_code text) returns uuid
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_driver uuid;
+  v_invite public.organization_invites;
 begin
   if auth.uid() is null then
     raise exception 'Faça login para aceitar o convite' using errcode = '28000';
   end if;
 
-  update public.analyst_links
-     set analyst_id = auth.uid(), status = 'active', accepted_at = now()
-   where invite_code = upper(trim(p_code))
-     and status = 'pending'
-     and expires_at > now()
-     and driver_id <> auth.uid()
-     and not exists (
-       select 1 from public.analyst_links a
-       where a.driver_id = analyst_links.driver_id
-         and a.analyst_id = auth.uid()
-         and a.status = 'active'
-     )
-  returning driver_id into v_driver;
+  select * into v_invite
+  from public.organization_invites
+  where code = upper(trim(p_code))
+    and status = 'pending'
+    and expires_at > now()
+  for update;
 
-  if v_driver is null then
+  if v_invite.id is null then
     raise exception 'Código inválido, expirado ou já usado' using errcode = 'P0002';
   end if;
-  return v_driver;
+
+  -- já é membro: não gasta o convite
+  if exists (select 1 from public.organization_members
+             where org_id = v_invite.org_id and user_id = auth.uid()) then
+    return v_invite.org_id;
+  end if;
+
+  insert into public.organization_members (org_id, user_id, role)
+  values (v_invite.org_id, auth.uid(), 'member');
+
+  update public.organization_invites
+     set status = 'used', used_by = auth.uid(), used_at = now()
+   where id = v_invite.id;
+
+  return v_invite.org_id;
 end;
 $$;
 
@@ -264,7 +303,7 @@ $$;
 -- ---------------------------------------------------------------------------
 
 -- Totais de um período. Receita total = soma dos fretes; receita faturada = total − custos.
-create function public.period_totals(p_driver uuid, p_start date, p_end date) returns jsonb
+create function public.period_totals(p_org uuid, p_start date, p_end date) returns jsonb
 language sql stable security invoker set search_path = '' as $$
   select jsonb_build_object(
     'trips',       count(*),
@@ -279,23 +318,23 @@ language sql stable security invoker set search_path = '' as $$
     'km',          coalesce(sum(km), 0)
   )
   from public.trips
-  where driver_id = p_driver
+  where org_id = p_org
     and trip_date between p_start and p_end;
 $$;
 
 -- Topo do dashboard em uma única chamada: período analisado × período comparado.
 create function public.dashboard_summary(
-  p_driver uuid, p_start date, p_end date, p_cmp_start date, p_cmp_end date
+  p_org uuid, p_start date, p_end date, p_cmp_start date, p_cmp_end date
 ) returns jsonb
 language sql stable security invoker set search_path = '' as $$
   select jsonb_build_object(
-    'current',  public.period_totals(p_driver, p_start, p_end),
-    'previous', public.period_totals(p_driver, p_cmp_start, p_cmp_end)
+    'current',  public.period_totals(p_org, p_start, p_end),
+    'previous', public.period_totals(p_org, p_cmp_start, p_cmp_end)
   );
 $$;
 
 -- Série temporal com buckets vazios preenchidos com zero.
-create function public.timeline(p_driver uuid, p_start date, p_end date, p_grain text)
+create function public.timeline(p_org uuid, p_start date, p_end date, p_grain text)
 returns table (bucket date, revenue bigint, cost bigint)
 language plpgsql stable security invoker set search_path = '' as $$
 begin
@@ -322,7 +361,7 @@ begin
            sum(t.freight_cents) as revenue,
            sum(t.cost_cents) as cost
     from public.trips t
-    where t.driver_id = p_driver
+    where t.org_id = p_org
       and t.trip_date between p_start and p_end
     group by 1
   )
@@ -333,12 +372,14 @@ begin
 end;
 $$;
 
-revoke execute on function public.create_invite() from anon, public;
+revoke execute on function public.create_organization(text) from anon, public;
+revoke execute on function public.create_invite(uuid) from anon, public;
 revoke execute on function public.accept_invite(text) from anon, public;
 revoke execute on function public.period_totals(uuid, date, date) from anon, public;
 revoke execute on function public.dashboard_summary(uuid, date, date, date, date) from anon, public;
 revoke execute on function public.timeline(uuid, date, date, text) from anon, public;
-grant execute on function public.create_invite() to authenticated;
+grant execute on function public.create_organization(text) to authenticated;
+grant execute on function public.create_invite(uuid) to authenticated;
 grant execute on function public.accept_invite(text) to authenticated;
 grant execute on function public.period_totals(uuid, date, date) to authenticated;
 grant execute on function public.dashboard_summary(uuid, date, date, date, date) to authenticated;

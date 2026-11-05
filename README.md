@@ -1,7 +1,7 @@
 # Rodata
 
-Aplicativo **mobile e web** para fretistas autônomos e seus analistas. O fretista lança cada
-viagem (frete e gastos) e o Rodata mostra receita total, receita faturada, custos, evolução no
+Aplicativo **mobile e web** para fretistas autônomos e quem cuida das finanças deles. Fretista e
+analista participam da mesma **organização** e usam a mesma visão: qualquer um lança viagens (frete e gastos) e o Rodata mostra receita total, receita faturada, custos, evolução no
 tempo, previsão dos próximos meses e quanto falta para o **limite do MEI**.
 
 - Requisitos, arquitetura e decisões: [`docs/requisitos-e-arquitetura.md`](docs/requisitos-e-arquitetura.md)
@@ -12,14 +12,14 @@ tempo, previsão dos próximos meses e quanto falta para o **limite do MEI**.
 
 | Área | Funcionalidades |
 |---|---|
-| Conta | Cadastro como **fretista** ou **analista**, login, recuperar senha, sessão salva no aparelho |
+| Conta | Cadastro, login, recuperar senha, sessão salva no aparelho |
+| Organização | Quem se cadastra **cria uma organização** ou **entra com código de convite** (6 letras, enviado pelo WhatsApp). Todos os membros podem lançar, editar e analisar; cada viagem mostra quem lançou. Dá para participar de várias organizações e alternar entre elas |
 | Viagens | Criar, editar, excluir (com **Desfazer**), **repetir viagem**, busca, ordenação, campos de R$ com máscara, data com atalhos Hoje/Ontem |
 | Offline | Lançar viagens e anotações **sem internet**: ficam salvas no celular e são enviadas sozinhas quando o sinal volta |
 | Dashboard | Período analisado × comparado, **receita total** (soma dos fretes), **receita faturada** (frete − custos), margem, custos por categoria, linha do tempo (dia/semana/mês), resumo em linguagem simples |
 | MEI | Termômetro do limite (MEI caminhoneiro R$ 251.600, MEI comum R$ 81.000, ME, ou limite próprio), limite proporcional no ano de abertura, alertas de 70/90/100/120%, média mensal permitida até dezembro |
 | Previsão | Próximos 3 meses e fechamento do ano em faixa (pessimista/provável/otimista); avisa o mês em que o limite seria ultrapassado |
-| Analista | Convite por **código de 6 letras enviado pelo WhatsApp**; analista vê os dados (somente leitura), escreve anotações, acompanha vários fretistas; fretista pode remover o acesso |
-| Anotações | Criar, editar, excluir, buscar; analista e fretista escrevem as suas |
+| Anotações | Criar, editar, excluir, buscar; mostra quem escreveu |
 
 ## Rodando localmente
 
@@ -49,7 +49,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY impressa pelo db:start>
 npm run web
 ```
 
-Contas de demonstração (senha `rodata123`): `fretista@rodata.dev` e `analista@rodata.dev`.
+Contas de demonstração (senha `rodata123`): `fretista@rodata.dev` e `analista@rodata.dev`, ambas
+membros da organização "Transportes Yanase".
 
 Para testar no celular, instale o app **Expo Go** e rode `npm start` (ou gere um build de
 desenvolvimento com `npx eas-cli build --profile development`).
@@ -66,8 +67,8 @@ npm run test:db
 
 - `npm run check` — typecheck, lint e testes das regras de negócio (`src/domain`: dinheiro, datas,
   métricas, MEI e previsão).
-- `npm run test:db` — sobe um Postgres temporário e testa as políticas de acesso (RLS), o convite
-  do analista e as funções de análise (`supabase/tests`).
+- `npm run test:db` — sobe um Postgres temporário e testa as políticas de acesso (RLS), as
+  organizações e convites e as funções de análise (`supabase/tests`).
 
 ## Deploy gratuito
 

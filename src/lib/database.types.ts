@@ -6,7 +6,8 @@ type Timestamps = { created_at: string };
 
 export type TripRow = {
   id: string;
-  driver_id: string;
+  org_id: string;
+  created_by: string | null;
   title: string;
   origin: string;
   destination: string;
@@ -25,8 +26,8 @@ export type TripRow = {
 
 export type NoteRow = {
   id: string;
-  driver_id: string;
-  author_id: string;
+  org_id: string;
+  author_id: string | null;
   title: string;
   body: string;
   note_date: string;
@@ -37,25 +38,40 @@ export type NoteRow = {
 export type ProfileRow = Timestamps & {
   id: string;
   name: string;
-  role: 'driver' | 'analyst';
 };
 
-export type BusinessSettingsRow = {
-  driver_id: string;
+export type OrganizationRow = Timestamps & {
+  id: string;
+  name: string;
+  created_by: string | null;
+};
+
+export type MemberRole = 'owner' | 'member';
+
+export type OrganizationMemberRow = {
+  org_id: string;
+  user_id: string;
+  role: MemberRole;
+  joined_at: string;
+};
+
+export type OrganizationSettingsRow = {
+  org_id: string;
   regime: 'mei' | 'mei_tac' | 'me' | 'other';
   cnpj_opened_at: string | null;
   annual_limit_cents: number | null;
   updated_at: string;
 };
 
-export type AnalystLinkRow = Timestamps & {
+export type OrganizationInviteRow = Timestamps & {
   id: string;
-  driver_id: string;
-  analyst_id: string | null;
-  invite_code: string;
-  status: 'pending' | 'active' | 'revoked';
+  org_id: string;
+  code: string;
+  created_by: string | null;
+  status: 'pending' | 'used' | 'revoked';
+  used_by: string | null;
+  used_at: string | null;
   expires_at: string;
-  accepted_at: string | null;
 };
 
 type Table<Row, Insert = Partial<Row>> = {
@@ -65,11 +81,11 @@ type Table<Row, Insert = Partial<Row>> = {
   Relationships: [];
 };
 
-export type TripInsert = Omit<TripRow, 'cost_cents' | 'created_at' | 'updated_at' | 'driver_id'> & {
-  driver_id?: string;
+export type TripInsert = Omit<TripRow, 'cost_cents' | 'created_at' | 'updated_at' | 'created_by'> & {
+  created_by?: string | null;
 };
 export type NoteInsert = Omit<NoteRow, 'created_at' | 'updated_at' | 'author_id'> & {
-  author_id?: string;
+  author_id?: string | null;
 };
 
 export type Database = {
@@ -78,24 +94,27 @@ export type Database = {
       trips: Table<TripRow, TripInsert>;
       notes: Table<NoteRow, NoteInsert>;
       profiles: Table<ProfileRow>;
-      business_settings: Table<BusinessSettingsRow, Partial<BusinessSettingsRow> & { driver_id: string }>;
-      analyst_links: Table<AnalystLinkRow>;
+      organizations: Table<OrganizationRow>;
+      organization_members: Table<OrganizationMemberRow>;
+      organization_settings: Table<OrganizationSettingsRow, Partial<OrganizationSettingsRow> & { org_id: string }>;
+      organization_invites: Table<OrganizationInviteRow>;
     };
     Views: Record<string, never>;
     Functions: {
       dashboard_summary: {
-        Args: { p_driver: string; p_start: string; p_end: string; p_cmp_start: string; p_cmp_end: string };
+        Args: { p_org: string; p_start: string; p_end: string; p_cmp_start: string; p_cmp_end: string };
         Returns: { current: Record<string, number>; previous: Record<string, number> };
       };
       period_totals: {
-        Args: { p_driver: string; p_start: string; p_end: string };
+        Args: { p_org: string; p_start: string; p_end: string };
         Returns: Record<string, number>;
       };
       timeline: {
-        Args: { p_driver: string; p_start: string; p_end: string; p_grain: string };
+        Args: { p_org: string; p_start: string; p_end: string; p_grain: string };
         Returns: { bucket: string; revenue: number; cost: number }[];
       };
-      create_invite: { Args: Record<string, never>; Returns: AnalystLinkRow };
+      create_organization: { Args: { p_name: string }; Returns: string };
+      create_invite: { Args: { p_org: string }; Returns: OrganizationInviteRow };
       accept_invite: { Args: { p_code: string }; Returns: string };
     };
     Enums: Record<string, never>;

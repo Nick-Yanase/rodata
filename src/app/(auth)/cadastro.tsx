@@ -1,17 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Logo } from '@/components/Logo';
 import { AppText, Button, Screen, TextField } from '@/components/ui';
 import { friendlyError, supabase } from '@/lib/supabase';
-import { colors, radius } from '@/theme/tokens';
-
-type Role = 'driver' | 'analyst';
+import { colors } from '@/theme/tokens';
 
 export default function SignUp() {
-  const [role, setRole] = useState<Role>('driver');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +30,7 @@ export default function SignUp() {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { name: name.trim(), role } },
+      options: { data: { name: name.trim() } },
     });
     setLoading(false);
     if (error) return setErrors({ form: friendlyError(error) });
@@ -70,24 +67,6 @@ export default function SignUp() {
           <AppText color={colors.textMuted} align="center">
             Crie sua conta em menos de um minuto.
           </AppText>
-        </View>
-
-        <AppText variant="label">Como você vai usar o Rodata?</AppText>
-        <View style={styles.roles}>
-          <RoleOption
-            selected={role === 'driver'}
-            onPress={() => setRole('driver')}
-            icon="bus-outline"
-            title="Sou fretista"
-            text="Lanço minhas viagens e gastos"
-          />
-          <RoleOption
-            selected={role === 'analyst'}
-            onPress={() => setRole('analyst')}
-            icon="bar-chart-outline"
-            title="Sou analista"
-            text="Acompanho os números de um fretista"
-          />
         </View>
 
         <TextField label="Nome" value={name} onChangeText={setName} autoComplete="name" error={errors.name} placeholder="Seu nome" />
@@ -142,49 +121,8 @@ export default function SignUp() {
   );
 }
 
-function RoleOption(props: {
-  selected: boolean;
-  onPress: () => void;
-  icon: 'bus-outline' | 'bar-chart-outline';
-  title: string;
-  text: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: props.selected }}
-      onPress={props.onPress}
-      style={[styles.role, props.selected && styles.roleSelected]}>
-      <Ionicons name={props.icon} size={28} color={props.selected ? colors.primaryStrong : colors.textMuted} />
-      <View style={{ flex: 1 }}>
-        <AppText variant="label">{props.title}</AppText>
-        <AppText variant="small" color={colors.textMuted}>
-          {props.text}
-        </AppText>
-      </View>
-      <Ionicons
-        name={props.selected ? 'radio-button-on' : 'radio-button-off'}
-        size={24}
-        color={props.selected ? colors.primaryStrong : colors.borderStrong}
-      />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   wrap: { width: '100%', maxWidth: 480, alignSelf: 'center', gap: 16, paddingTop: 24 },
   header: { alignItems: 'center', gap: 12, marginBottom: 8 },
-  roles: { gap: 10 },
-  role: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    minHeight: 64,
-  },
-  roleSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft, borderWidth: 2 },
   footer: { alignItems: 'center' },
 });

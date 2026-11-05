@@ -25,11 +25,10 @@ type Props = {
   projection?: ForecastPoint | null;
   reachMonth?: string | null;
   configured: boolean;
-  canEdit: boolean;
 };
 
 /** Termômetro do MEI (RF-44): quanto já usou do limite e quanto pode faturar por mês. */
-export function MeiCard({ status, regimeLabel, projection, reachMonth, configured, canEdit }: Props) {
+export function MeiCard({ status, regimeLabel, projection, reachMonth, configured }: Props) {
   const color = levelColor[status.level];
   const pct = Math.round(status.ratio * 100);
   return (
@@ -93,12 +92,12 @@ export function MeiCard({ status, regimeLabel, projection, reachMonth, configure
           Limite proporcional: o CNPJ foi aberto neste ano.
         </AppText>
       ) : null}
-      {!configured && canEdit ? (
+      {!configured ? (
         <Button
           variant="secondary"
           size="md"
           icon="settings-outline"
-          title="Confirmar meu tipo de MEI"
+          title="Confirmar o tipo de MEI"
           onPress={() => router.push('/perfil')}
         />
       ) : null}

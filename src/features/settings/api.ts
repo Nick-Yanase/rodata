@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { AnalystLinkRow, BusinessSettingsRow } from '@/lib/database.types';
+import type { MemberRole, OrganizationInviteRow, OrganizationSettingsRow } from '@/lib/database.types';
 import { supabase } from '@/lib/supabase';
 
-export function useBusinessSettings(driverId: string | null) {
+// ---------------------------------------------------------------------------
+// Configuração do negócio (MEI)
+// ---------------------------------------------------------------------------
+
+export function useOrgSettings(orgId: string | null) {
   return useQuery({
-    queryKey: ['settings', driverId],
-    enabled: Boolean(driverId),
-    queryFn: async (): Promise<BusinessSettingsRow | null> => {
+    queryKey: ['settings', orgId],
+    enabled: Boolean(orgId),
+    queryFn: async (): Promise<OrganizationSettingsRow | null> => {
       const { data, error } = await supabase
-        .from('business_settings')
+        .from('organization_settings')
         .select('*')
-        .eq('driver_id', driverId!)
+        .eq('org_id', orgId!)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -19,16 +23,20 @@ export function useBusinessSettings(driverId: string | null) {
   });
 }
 
-export function useSaveBusinessSettings() {
+export function useSaveOrgSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (s: Omit<BusinessSettingsRow, 'updated_at'>) => {
-      const { error } = await supabase.from('business_settings').upsert(s);
+    mutationFn: async (s: Omit<OrganizationSettingsRow, 'updated_at'>) => {
+      const { error } = await supabase.from('organization_settings').upsert(s);
       if (error) throw error;
     },
-    onSuccess: (_d, s) => qc.invalidateQueries({ queryKey: ['settings', s.driver_id] }),
+    onSuccess: (_d, s) => qc.invalidateQueries({ queryKey: ['settings', s.org_id] }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Perfil
+// ---------------------------------------------------------------------------
 
 export function useUpdateName() {
   const qc = useQueryClient();
@@ -37,26 +45,114 @@ export function useUpdateName() {
       const { error } = await supabase.from('profiles').update({ name }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['members'] });
+    },
   });
 }
 
-export type DriverLink = AnalystLinkRow & { analyst: { name: string } | null };
+// ---------------------------------------------------------------------------
+// Organização
+// ---------------------------------------------------------------------------
 
-/** Convites e analistas do fretista. */
-export function useDriverLinks(driverId: string | null, enabled: boolean) {
-  return useQuery({
-    queryKey: ['links', driverId],
-    enabled: Boolean(driverId) && enabled,
-    queryFn: async (): Promise<DriverLink[]> => {
-      const { data, error } = await supabase
-        .from('analyst_links')
-        .select('*, analyst:profiles!analyst_links_analyst_id_fkey(name)')
-        .eq('driver_id', driverId!)
-        .neq('status', 'revoked')
-        .order('created_at', { ascending: false });
+function invalidateOrgs(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['organizations'] });
+  qc.invalidateQueries({ queryKey: ['members'] });
+}
+
+export function useCreateOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase.rpc('create_organization', { p_name: name });
       if (error) throw error;
-      return (data ?? []) as unknown as DriverLink[];
+      return data as string;
+    },
+    onSuccess: () => invalidateOrgs(qc),
+  });
+}
+
+export function useRenameOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from('organizations').update({ name }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateOrgs(qc),
+  });
+}
+
+export type Member = { userId: string; name: string; role: MemberRole };
+
+/** Membros da organização — também usados para mostrar quem lançou cada viagem. */
+export function useMembers(orgId: string | null) {
+  return useQuery({
+    queryKey: ['members', orgId],
+    enabled: Boolean(orgId),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Member[]> => {
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('user_id, role, profile:profiles(name)')
+        .eq('org_id', orgId!)
+        .order('joined_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((m) => {
+        const row = m as unknown as { user_id: string; role: MemberRole; profile: { name: string } | null };
+        return { userId: row.user_id, role: row.role, name: row.profile?.name || 'Sem nome' };
+      });
+    },
+  });
+}
+
+/** Nome curto de quem lançou/escreveu, ou undefined quando foi o próprio usuário. */
+export function useAuthorLabel(orgId: string | null, me: string | null) {
+  const members = useMembers(orgId);
+  return (authorId: string | null | undefined) => {
+    if (!authorId || authorId === me) return undefined;
+    const name = members.data?.find((m) => m.userId === authorId)?.name;
+    return name ? name.split(' ')[0] : 'outro membro';
+  };
+}
+
+export function useRemoveMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orgId, userId }: { orgId: string; userId: string }) => {
+      const { error, count } = await supabase
+        .from('organization_members')
+        .delete({ count: 'exact' })
+        .eq('org_id', orgId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      if (!count) throw new Error('Sem permissão para remover este membro.');
+    },
+    onSuccess: () => invalidateOrgs(qc),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Convites
+// ---------------------------------------------------------------------------
+
+export function usePendingInvite(orgId: string | null) {
+  return useQuery({
+    queryKey: ['invites', orgId],
+    enabled: Boolean(orgId),
+    queryFn: async (): Promise<OrganizationInviteRow | null> => {
+      const { data, error } = await supabase
+        .from('organization_invites')
+        .select('*')
+        .eq('org_id', orgId!)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
   });
 }
@@ -64,26 +160,23 @@ export function useDriverLinks(driverId: string | null, enabled: boolean) {
 export function useCreateInvite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.rpc('create_invite');
+    mutationFn: async (orgId: string) => {
+      const { data, error } = await supabase.rpc('create_invite', { p_org: orgId });
       if (error) throw error;
-      return data as AnalystLinkRow;
+      return data as OrganizationInviteRow;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['links'] }),
+    onSuccess: (_d, orgId) => qc.invalidateQueries({ queryKey: ['invites', orgId] }),
   });
 }
 
-export function useRevokeLink() {
+export function useRevokeInvite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (linkId: string) => {
-      const { error } = await supabase.from('analyst_links').update({ status: 'revoked' }).eq('id', linkId);
+    mutationFn: async (invite: OrganizationInviteRow) => {
+      const { error } = await supabase.from('organization_invites').update({ status: 'revoked' }).eq('id', invite.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['links'] });
-      qc.invalidateQueries({ queryKey: ['linked-drivers'] });
-    },
+    onSuccess: (_d, invite) => qc.invalidateQueries({ queryKey: ['invites', invite.org_id] }),
   });
 }
 
@@ -95,6 +188,6 @@ export function useAcceptInvite() {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['linked-drivers'] }),
+    onSuccess: () => invalidateOrgs(qc),
   });
 }

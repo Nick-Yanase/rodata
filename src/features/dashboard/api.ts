@@ -8,14 +8,14 @@ import { supabase } from '@/lib/supabase';
 export type Summary = { current: PeriodTotals; previous: PeriodTotals };
 
 /** Topo do dashboard: uma chamada só (RNF-21). */
-export function useSummary(driverId: string | null, current: Period, previous: Period) {
+export function useSummary(orgId: string | null, current: Period, previous: Period) {
   return useQuery({
-    queryKey: ['dashboard', 'summary', driverId, current, previous],
-    enabled: Boolean(driverId),
+    queryKey: ['dashboard', 'summary', orgId, current, previous],
+    enabled: Boolean(orgId),
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<Summary> => {
       const { data, error } = await supabase.rpc('dashboard_summary', {
-        p_driver: driverId!,
+        p_org: orgId!,
         p_start: current.start,
         p_end: current.end,
         p_cmp_start: previous.start,
@@ -29,9 +29,9 @@ export function useSummary(driverId: string | null, current: Period, previous: P
 
 export type TimelinePoint = { bucket: string; revenue: number; cost: number };
 
-async function fetchTimeline(driverId: string, p: Period, grain: Grain): Promise<TimelinePoint[]> {
+async function fetchTimeline(orgId: string, p: Period, grain: Grain): Promise<TimelinePoint[]> {
   const { data, error } = await supabase.rpc('timeline', {
-    p_driver: driverId,
+    p_org: orgId,
     p_start: p.start,
     p_end: p.end,
     p_grain: grain,
@@ -40,12 +40,12 @@ async function fetchTimeline(driverId: string, p: Period, grain: Grain): Promise
   return (data ?? []).map((r) => ({ bucket: r.bucket, revenue: Number(r.revenue), cost: Number(r.cost) }));
 }
 
-export function useTimeline(driverId: string | null, p: Period, grain: Grain) {
+export function useTimeline(orgId: string | null, p: Period, grain: Grain) {
   return useQuery({
-    queryKey: ['dashboard', 'timeline', driverId, p, grain],
-    enabled: Boolean(driverId),
+    queryKey: ['dashboard', 'timeline', orgId, p, grain],
+    enabled: Boolean(orgId),
     placeholderData: (prev) => prev,
-    queryFn: () => fetchTimeline(driverId!, p, grain),
+    queryFn: () => fetchTimeline(orgId!, p, grain),
   });
 }
 
@@ -53,14 +53,14 @@ export function useTimeline(driverId: string | null, p: Period, grain: Grain) {
  * Histórico mensal dos últimos 36 meses até o mês corrente — base da previsão e do
  * termômetro do MEI.
  */
-export function useMonthlyHistory(driverId: string | null, today = new Date()) {
+export function useMonthlyHistory(orgId: string | null, today = new Date()) {
   const end = toISODate(endOfMonth(today));
   const start = toISODate(startOfMonth(subMonths(today, 35)));
   return useQuery({
-    queryKey: ['dashboard', 'monthly', driverId, end],
-    enabled: Boolean(driverId),
+    queryKey: ['dashboard', 'monthly', orgId, end],
+    enabled: Boolean(orgId),
     queryFn: async () => {
-      const months = await fetchTimeline(driverId!, { start, end }, 'month');
+      const months = await fetchTimeline(orgId!, { start, end }, 'month');
       // descarta os meses antes do primeiro lançamento (não são "zero", são "sem dados")
       const first = months.findIndex((m) => m.revenue > 0 || m.cost > 0);
       const history = first < 0 ? [] : months.slice(first);
