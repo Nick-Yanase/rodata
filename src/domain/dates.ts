@@ -130,3 +130,24 @@ export function isGrainAllowed(p: Period, grain: Grain): boolean {
 }
 
 export { addDays, addMonths, startOfMonth, endOfMonth, subMonths };
+
+/** Máscara de digitação de mês/ano: "082026" → "08/2026". */
+export function maskMonthYear(text: string): string {
+  const d = text.replace(/\D/g, '').slice(0, 6);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}/${d.slice(2)}`;
+}
+
+/** "08/2026" → "2026-08-01" (primeiro dia do mês); null se inválido. */
+export function parseMonthYear(text: string): ISODate | null {
+  const m = /^(\d{2})\/(\d{4})$/.exec(text.trim());
+  if (!m) return null;
+  const month = Number(m[1]);
+  const year = Number(m[2]);
+  if (month < 1 || month > 12 || year < 1990 || year > 2100) return null;
+  return `${m[2]}-${m[1]}-01`;
+}
+
+/** "2026-08-01" → "08/2026" */
+export function formatMonthYear(s: ISODate): string {
+  return format(fromISODate(s), 'MM/yyyy');
+}

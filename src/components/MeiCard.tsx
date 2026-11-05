@@ -21,14 +21,14 @@ const levelColor = {
 
 type Props = {
   status: MeiStatus;
-  regimeLabel: string;
   projection?: ForecastPoint | null;
   reachMonth?: string | null;
-  configured: boolean;
+  /** false enquanto ninguém informou o mês de abertura do MEI */
+  openedAtKnown: boolean;
 };
 
 /** Termômetro do MEI (RF-44): quanto já usou do limite e quanto pode faturar por mês. */
-export function MeiCard({ status, regimeLabel, projection, reachMonth, configured }: Props) {
+export function MeiCard({ status, projection, reachMonth, openedAtKnown }: Props) {
   const color = levelColor[status.level];
   const pct = Math.round(status.ratio * 100);
   return (
@@ -36,7 +36,7 @@ export function MeiCard({ status, regimeLabel, projection, reachMonth, configure
       <View style={styles.head}>
         <Ionicons name="speedometer-outline" size={22} color={colors.primary} />
         <View style={{ flex: 1 }}>
-          <AppText variant="label">Limite do {regimeLabel} em {status.year}</AppText>
+          <AppText variant="label">Limite do MEI em {status.year}</AppText>
           <AppText variant="caption" color={colors.textMuted}>
             Conta a receita total (valor cheio dos fretes)
           </AppText>
@@ -89,17 +89,23 @@ export function MeiCard({ status, regimeLabel, projection, reachMonth, configure
 
       {status.isProportional ? (
         <AppText variant="small" color={colors.textMuted}>
-          Limite proporcional: o CNPJ foi aberto neste ano.
+          Limite menor porque o MEI foi aberto neste ano ({status.activeMonths}{' '}
+          {status.activeMonths === 1 ? 'mês' : 'meses'} de atividade).
         </AppText>
       ) : null}
-      {!configured ? (
-        <Button
-          variant="secondary"
-          size="md"
-          icon="settings-outline"
-          title="Confirmar o tipo de MEI"
-          onPress={() => router.push('/perfil')}
-        />
+      {!openedAtKnown ? (
+        <View style={styles.ask}>
+          <AppText variant="small">
+            Abriu o MEI este ano? Informe o mês de abertura: no primeiro ano o limite é menor.
+          </AppText>
+          <Button
+            variant="secondary"
+            size="md"
+            icon="calendar-outline"
+            title="Informar mês de abertura"
+            onPress={() => router.push('/perfil')}
+          />
+        </View>
       ) : null}
     </Card>
   );
@@ -134,5 +140,6 @@ const styles = StyleSheet.create({
   mark: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: '#FFFFFF' },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
   facts: { gap: 12 },
+  ask: { gap: 10, padding: 12, borderRadius: radius.md, backgroundColor: colors.background },
   fact: { gap: 2 },
 });

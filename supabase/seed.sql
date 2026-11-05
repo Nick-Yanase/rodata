@@ -26,8 +26,8 @@ insert into public.organization_members (org_id, user_id, role) values
   ('99999999-9999-9999-9999-999999999999', '11111111-1111-1111-1111-111111111111', 'owner'),
   ('99999999-9999-9999-9999-999999999999', '22222222-2222-2222-2222-222222222222', 'member');
 
-insert into public.organization_settings (org_id, regime, cnpj_opened_at)
-values ('99999999-9999-9999-9999-999999999999', 'mei_tac', '2023-03-15');
+insert into public.organization_settings (org_id, mei_opened_at)
+values ('99999999-9999-9999-9999-999999999999', '2023-03-01');
 
 -- ~14 meses de viagens (3 a 6 por mês), com sazonalidade leve no meio do ano.
 insert into public.trips (id, org_id, created_by, title, origin, destination, trip_date,

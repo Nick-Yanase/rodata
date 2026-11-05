@@ -4,11 +4,11 @@ import { ptBR } from 'date-fns/locale';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
-import { AppText, Button, Card, Chip, confirm, DateField, MoneyField, Screen, TextField, useToast } from '@/components/ui';
-import { DEFAULT_ANNUAL_LIMIT, REGIMES, type Regime } from '@/domain/mei';
+import { AppText, Button, Card, Chip, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
+import { limitForYear, MEI_ANNUAL_LIMIT } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
 import { useSession, type MyOrganization } from '@/features/auth/session';
 import {
@@ -266,7 +266,7 @@ function MembersCard({ org }: { org: MyOrganization }) {
 
 // ---------------------------------------------------------------------------
 
-/** Enquadramento do negócio e limite anual (RF-08). */
+/** Mês de abertura do MEI: define o teto proporcional no primeiro ano (RF-08). */
 function BusinessCard({ orgId }: { orgId: string }) {
   const settings = useOrgSettings(orgId);
   if (settings.isLoading) return null;
@@ -276,66 +276,40 @@ function BusinessCard({ orgId }: { orgId: string }) {
 function BusinessForm({ orgId, saved }: { orgId: string; saved: OrganizationSettingsRow | null }) {
   const save = useSaveOrgSettings();
   const toast = useToast();
-  const [regime, setRegime] = useState<Regime>(saved?.regime ?? 'mei_tac');
-  const [openedAt, setOpenedAt] = useState(saved?.cnpj_opened_at ?? '');
-  const [customLimit, setCustomLimit] = useState(saved?.annual_limit_cents ?? 0);
+  const [openedAt, setOpenedAt] = useState<string>(saved?.mei_opened_at ?? '');
+  const year = new Date().getFullYear();
+  const preview = openedAt ? limitForYear(year, openedAt) : null;
 
   return (
     <Card>
       <View style={styles.head}>
         <Ionicons name="speedometer-outline" size={24} color={colors.primary} />
-        <AppText variant="title">Tipo de empresa</AppText>
+        <AppText variant="title">MEI Caminhoneiro</AppText>
       </View>
-      <AppText variant="small" color={colors.textMuted}>
-        Usamos isso para calcular quanto falta para o limite do ano.
+      <AppText color={colors.textMuted}>
+        Limite de faturamento: <AppText weight="700">{formatBRL(MEI_ANNUAL_LIMIT)} por ano</AppText>.
       </AppText>
-      <View style={{ gap: 10 }} accessibilityRole="radiogroup">
-        {REGIMES.map((r) => {
-          const selected = r.id === regime;
-          return (
-            <Pressable
-              key={r.id}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              onPress={() => setRegime(r.id)}
-              style={[styles.option, selected && styles.optionSelected]}>
-              <Ionicons
-                name={selected ? 'radio-button-on' : 'radio-button-off'}
-                size={24}
-                color={selected ? colors.primaryStrong : colors.borderStrong}
-              />
-              <View style={{ flex: 1 }}>
-                <AppText variant="label">{r.label}</AppText>
-                <AppText variant="small" color={colors.textMuted}>
-                  {r.hint}
-                </AppText>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-      <DateField label="Data de abertura do CNPJ" value={openedAt} onChange={setOpenedAt} quickChips={false} />
-      <MoneyField
-        label="Limite anual personalizado"
-        value={customLimit}
-        onChange={setCustomLimit}
-        optional
-        hint={`Deixe vazio para usar o padrão: ${formatBRL(DEFAULT_ANNUAL_LIMIT[regime])}`}
+      <MonthYearField
+        label="Quando você abriu o MEI?"
+        value={openedAt}
+        onChange={setOpenedAt}
+        hint="Mês e ano. No ano em que o MEI é aberto, o limite é menor (proporcional aos meses)."
       />
+      {preview?.isProportional ? (
+        <AppText variant="small" weight="600" color={colors.warning}>
+          Em {year}, seu limite é {formatBRL(preview.limit)} ({preview.activeMonths}{' '}
+          {preview.activeMonths === 1 ? 'mês' : 'meses'} de atividade).
+        </AppText>
+      ) : null}
       <Button
         title="Salvar"
         size="md"
         loading={save.isPending}
         onPress={() =>
           save.mutate(
+            { org_id: orgId, mei_opened_at: openedAt || null },
             {
-              org_id: orgId,
-              regime,
-              cnpj_opened_at: openedAt || null,
-              annual_limit_cents: customLimit > 0 ? customLimit : null,
-            },
-            {
-              onSuccess: () => toast({ message: 'Dados da empresa salvos!' }),
+              onSuccess: () => toast({ message: 'Salvo!' }),
               onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
             },
           )
@@ -383,17 +357,6 @@ function OtherOrganizationsCard() {
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    minHeight: 56,
-  },
-  optionSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
   avatar: {
     width: 40,

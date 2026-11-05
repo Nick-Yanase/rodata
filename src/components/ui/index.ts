@@ -7,6 +7,7 @@ export { DateField } from './DateField';
 export { EmptyState } from './EmptyState';
 export { Field, TextField } from './Field';
 export { MoneyField } from './MoneyField';
+export { MonthYearField } from './MonthYearField';
 export { Screen } from './Screen';
 export { Segmented } from './Segmented';
 export { ToastProvider, useToast } from './Toast';

@@ -17,7 +17,7 @@ tempo, previsão dos próximos meses e quanto falta para o **limite do MEI**.
 | Viagens | Criar, editar, excluir (com **Desfazer**), **repetir viagem**, busca, ordenação, campos de R$ com máscara, data com atalhos Hoje/Ontem |
 | Offline | Lançar viagens e anotações **sem internet**: ficam salvas no celular e são enviadas sozinhas quando o sinal volta |
 | Dashboard | Período analisado × comparado, **receita total** (soma dos fretes), **receita faturada** (frete − custos), margem, custos por categoria, linha do tempo (dia/semana/mês), resumo em linguagem simples |
-| MEI | Termômetro do limite (MEI caminhoneiro R$ 251.600, MEI comum R$ 81.000, ME, ou limite próprio), limite proporcional no ano de abertura, alertas de 70/90/100/120%, média mensal permitida até dezembro |
+| MEI | Termômetro do limite do **MEI Caminhoneiro** (R$ 251.600/ano), limite proporcional no ano de abertura (basta informar mês/ano de abertura), alertas de 70/90/100/120%, média mensal permitida até dezembro |
 | Previsão | Próximos 3 meses e fechamento do ano em faixa (pessimista/provável/otimista); avisa o mês em que o limite seria ultrapassado |
 | Anotações | Criar, editar, excluir, buscar; mostra quem escreveu |
 

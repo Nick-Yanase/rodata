@@ -102,8 +102,8 @@ begin
   assert (select freight_cents from public.trips where id = '00000000-0000-0000-0000-0000000000f1') = 35000, 'C edita viagem';
   update public.trips set fuel_cents = 1 where title = 'Viagem 1';
   assert (select fuel_cents from public.trips where title = 'Viagem 1') = 1, 'C edita viagem lançada por A';
-  update public.organization_settings set regime = 'mei' where org_id = v_org;
-  assert (select regime from public.organization_settings where org_id = v_org) = 'mei', 'C edita a configuração';
+  update public.organization_settings set mei_opened_at = '2024-05-01' where org_id = v_org;
+  assert (select mei_opened_at from public.organization_settings where org_id = v_org) = '2024-05-01', 'C edita a configuração';
   insert into public.notes (id, org_id, title) values (gen_random_uuid(), v_org, 'Revisar pedágios');
 
   -- C não remove o dono

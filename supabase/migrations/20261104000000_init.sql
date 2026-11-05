@@ -83,15 +83,15 @@ create table public.organization_invites (
 create index organization_invites_org_idx on public.organization_invites (org_id);
 
 -- ---------------------------------------------------------------------------
--- Configuração do negócio (enquadramento e limite anual)
+-- Configuração do negócio
+-- O público é o MEI Caminhoneiro: o teto anual é fixo no app (src/domain/mei.ts).
+-- A abertura do MEI só importa no primeiro ano, quando o teto é proporcional.
 -- ---------------------------------------------------------------------------
 create table public.organization_settings (
-  org_id              uuid primary key references public.organizations (id) on delete cascade,
-  regime              text not null default 'mei_tac' check (regime in ('mei', 'mei_tac', 'me', 'other')),
-  cnpj_opened_at      date,
-  -- nulo = usar o limite padrão do regime (definido no app, src/domain/mei.ts)
-  annual_limit_cents  bigint check (annual_limit_cents is null or annual_limit_cents > 0),
-  updated_at          timestamptz not null default now()
+  org_id          uuid primary key references public.organizations (id) on delete cascade,
+  -- primeiro dia do mês de abertura (o app pede só mês/ano)
+  mei_opened_at   date,
+  updated_at      timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------

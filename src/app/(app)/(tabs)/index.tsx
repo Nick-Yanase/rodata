@@ -24,7 +24,7 @@ import {
   type PeriodPreset,
 } from '@/domain/dates';
 import { forecastMonthly, projectYearEnd } from '@/domain/forecast';
-import { computeMeiStatus, monthLimitReached, REGIMES, type Regime } from '@/domain/mei';
+import { computeMeiStatus, monthLimitReached } from '@/domain/mei';
 import { formatPercent, margin, variation } from '@/domain/metrics';
 import { formatBRL } from '@/domain/money';
 import { useSession } from '@/features/auth/session';
@@ -38,7 +38,6 @@ const GRAINS: { id: Grain; label: string }[] = [
   { id: 'month', label: 'Mês' },
 ];
 
-const SHORT_REGIME: Record<Regime, string> = { mei_tac: 'MEI', mei: 'MEI', me: 'ME', other: 'negócio' };
 
 export default function Dashboard() {
   const { activeOrg, profile } = useSession();
@@ -67,14 +66,11 @@ export default function Dashboard() {
   const presetLabel = PERIOD_PRESETS.find((p) => p.id === preset)!.label.toLowerCase();
 
   // ----- MEI + previsão -----
-  const regime = settings.data?.regime ?? 'mei_tac';
   const today = new Date();
   const monthsLeft = 12 - getMonth(today);
   const meiStatus = monthly.data
     ? computeMeiStatus({
-        regime,
-        customLimit: settings.data?.annual_limit_cents,
-        cnpjOpenedAt: settings.data?.cnpj_opened_at,
+        meiOpenedAt: settings.data?.mei_opened_at,
         usedThisYear: monthly.data.revenueThisYear,
         today,
       })
@@ -229,10 +225,9 @@ export default function Dashboard() {
       {meiStatus ? (
         <MeiCard
           status={meiStatus}
-          regimeLabel={SHORT_REGIME[regime]}
           projection={projection}
           reachMonth={reachMonth}
-          configured={Boolean(settings.data?.cnpj_opened_at) || settings.data?.regime !== 'mei_tac'}
+          openedAtKnown={Boolean(settings.data?.mei_opened_at)}
         />
       ) : null}
 
@@ -245,11 +240,6 @@ export default function Dashboard() {
         />
       ) : null}
 
-      {settings.isFetched && settings.data?.regime === 'mei_tac' && !settings.data?.cnpj_opened_at ? (
-        <AppText variant="small" color={colors.textMuted} align="center">
-          Considerando {REGIMES[0].label}. Ajuste em Perfil se não for o seu caso.
-        </AppText>
-      ) : null}
     </Screen>
   );
 }

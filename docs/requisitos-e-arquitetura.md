@@ -54,7 +54,7 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 | RF-05 | **Organização**: os dados (viagens, anotações, configuração do MEI) pertencem a uma organização — o negócio de frete. Qualquer pessoa cria uma organização e vira membro dela. Não há papéis separados: fretista e analista usam **a mesma visão**. | M |
 | RF-06 | Qualquer membro convida outra pessoa por **código de 6 letras enviado pelo WhatsApp** (vale 7 dias, uso único). Quem criou a organização pode remover membros; qualquer membro pode sair. | M |
 | RF-07 | Uma pessoa pode participar de **várias organizações** e alternar entre elas (ex.: analista que cuida de vários fretistas). | M |
-| RF-08 | Cadastro do negócio: tipo de enquadramento (MEI comum, **MEI Transportador Autônomo de Cargas**, ME, outro), data de abertura do CNPJ e limite anual (pré-preenchido, editável). | M |
+| RF-08 | O público é o **MEI Caminhoneiro**: o teto é fixo (sem escolha de tipo de empresa). A organização informa só o **mês e ano de abertura do MEI**, usados para o teto proporcional no primeiro ano. Enquanto não informado, o dashboard sugere preencher. | M |
 
 ### 2.2 Viagens (fonte principal dos dados)
 
@@ -104,11 +104,10 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 
 ### 2.5 Regras de negócio
 
-- **RN-01 Limite do MEI** (configurável — a legislação muda):
-  - MEI comum: **R$ 81.000/ano**.
-  - **MEI Transportador Autônomo de Cargas (MEI caminhoneiro, LC 188/2021): R$ 251.600/ano.**
-    Esse é provavelmente o caso do fretista com caminhão — confirmar o enquadramento no cadastro.
-  - No **ano de abertura**, o limite é proporcional: `limite / 12 × meses desde a abertura`.
+- **RN-01 Limite do MEI Caminhoneiro** (Transportador Autônomo de Cargas, LC 188/2021): **R$ 251.600/ano**,
+  fixo no app (`src/domain/mei.ts`); se a lei mudar, atualiza-se numa nova versão.
+  - No **ano de abertura**, o limite é proporcional: `R$ 251.600 / 12 × meses de atividade`, contando o mês de
+    abertura como mês inteiro (aberto em agosto → 5 meses → R$ 104.833,33). Nos anos seguintes, limite cheio.
   - Até **20% acima** do limite: desenquadramento a partir do ano seguinte.
     **Mais de 20% acima**: desenquadramento retroativo a janeiro (impostos retroativos) — alerta vermelho.
   - O limite do MEI é sobre a **receita bruta** = **Receita total** (o valor cheio dos fretes), **não** sobre a
@@ -279,9 +278,7 @@ erDiagram
   }
   organization_settings {
     uuid org_id PK
-    text regime "mei | mei_tac | me | other"
-    date cnpj_opened_at
-    bigint annual_limit_cents
+    date mei_opened_at "1º dia do mês de abertura"
   }
   trips {
     uuid id PK "gerado no aparelho (offline)"
@@ -467,6 +464,9 @@ tela inicial).
 ## 9. Estado da implementação (v0.1 — 04/11/2026)
 
 ### Decisões tomadas durante a implementação
+
+- **Só MEI Caminhoneiro** (pedido do cliente, 05/11/2026): sem escolha de tipo de empresa nem limite
+  personalizado. A única informação pedida é o mês/ano de abertura do MEI (teto proporcional no 1º ano).
 
 - **Organizações em vez de papéis** (pedido do cliente, 05/11/2026): não existem mais visões separadas de
   fretista e analista. Quem se cadastra cria uma organização ou entra numa com código de convite; todos os

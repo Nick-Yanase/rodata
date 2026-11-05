@@ -32,3 +32,15 @@ describe('datas', () => {
     expect(defaultGrain({ start: '2026-01-01', end: '2026-12-31' })).toBe('month');
   });
 });
+
+describe('mês/ano', () => {
+  it('máscara, validação e formatação', async () => {
+    const { formatMonthYear, maskMonthYear, parseMonthYear } = await import('../dates');
+    expect(maskMonthYear('082026')).toBe('08/2026');
+    expect(maskMonthYear('08')).toBe('08');
+    expect(parseMonthYear('08/2026')).toBe('2026-08-01');
+    expect(parseMonthYear('13/2026')).toBeNull();
+    expect(parseMonthYear('8/2026')).toBeNull();
+    expect(formatMonthYear('2026-08-01')).toBe('08/2026');
+  });
+});

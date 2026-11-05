@@ -57,9 +57,8 @@ export type OrganizationMemberRow = {
 
 export type OrganizationSettingsRow = {
   org_id: string;
-  regime: 'mei' | 'mei_tac' | 'me' | 'other';
-  cnpj_opened_at: string | null;
-  annual_limit_cents: number | null;
+  /** primeiro dia do mês de abertura do MEI */
+  mei_opened_at: string | null;
   updated_at: string;
 };
 

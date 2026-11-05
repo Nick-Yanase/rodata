@@ -3,67 +3,48 @@ import { getMonth, getYear } from 'date-fns';
 import { fromISODate, type ISODate } from './dates';
 import type { Cents } from './money';
 
-export type Regime = 'mei' | 'mei_tac' | 'me' | 'other';
-
-export const REGIMES: { id: Regime; label: string; hint: string }[] = [
-  {
-    id: 'mei_tac',
-    label: 'MEI Caminhoneiro',
-    hint: 'Transportador Autônomo de Cargas — limite de R$ 251.600 por ano',
-  },
-  { id: 'mei', label: 'MEI comum', hint: 'Limite de R$ 81.000 por ano' },
-  { id: 'me', label: 'Microempresa (ME)', hint: 'Limite de R$ 360.000 por ano' },
-  { id: 'other', label: 'Outro', hint: 'Informe o limite que quer acompanhar' },
-];
-
 /**
- * Limites anuais padrão (RN-01). Configuráveis pelo usuário porque a lei muda.
- * MEI caminhoneiro: LC 188/2021. MEI comum: LC 123/2006.
+ * Teto anual do MEI Caminhoneiro — Transportador Autônomo de Cargas (LC 188/2021).
+ * O Rodata é feito para esse público, então o teto é único. Se a lei mudar, basta
+ * atualizar este valor numa nova versão do app.
  */
-export const DEFAULT_ANNUAL_LIMIT: Record<Regime, Cents> = {
-  mei_tac: 251_600_00,
-  mei: 81_000_00,
-  me: 360_000_00,
-  other: 81_000_00,
-};
+export const MEI_ANNUAL_LIMIT: Cents = 251_600_00;
 
 /** Faixas do termômetro. */
 export type MeiLevel = 'ok' | 'attention' | 'warning' | 'reached' | 'over_tolerance' | 'over_20';
 
 export type MeiStatus = {
   year: number;
-  /** Limite do ano (proporcional se o CNPJ foi aberto neste ano). */
+  /** Teto do ano (proporcional se o MEI foi aberto neste ano). */
   limit: Cents;
   isProportional: boolean;
+  /** Meses de atividade considerados no ano (12, ou menos no ano de abertura). */
+  activeMonths: number;
   /** Faturamento bruto acumulado no ano = receita total (não a faturada!). */
   used: Cents;
   ratio: number;
   remaining: Cents;
   /** Meses que ainda faltam no ano, contando o atual. */
   monthsLeft: number;
-  /** Quanto pode faturar por mês, em média, até dezembro sem passar do limite. */
+  /** Quanto pode faturar por mês, em média, até dezembro sem passar do teto. */
   maxMonthlyAverage: Cents;
   level: MeiLevel;
 };
 
-export function annualLimit(regime: Regime, customLimit?: Cents | null): Cents {
-  return customLimit && customLimit > 0 ? customLimit : DEFAULT_ANNUAL_LIMIT[regime];
-}
-
 /**
- * No ano de abertura o limite é proporcional: limite ÷ 12 × meses de atividade,
- * contando o mês de abertura como mês inteiro.
+ * No ano de abertura o teto é proporcional: teto ÷ 12 × meses de atividade,
+ * contando o mês de abertura como mês inteiro. Nos anos seguintes, teto cheio.
  */
 export function limitForYear(
-  baseLimit: Cents,
   year: number,
-  cnpjOpenedAt?: ISODate | null,
-): { limit: Cents; isProportional: boolean } {
-  if (!cnpjOpenedAt) return { limit: baseLimit, isProportional: false };
-  const opened = fromISODate(cnpjOpenedAt);
-  if (getYear(opened) !== year) return { limit: baseLimit, isProportional: false };
+  meiOpenedAt?: ISODate | null,
+  annualLimit: Cents = MEI_ANNUAL_LIMIT,
+): { limit: Cents; isProportional: boolean; activeMonths: number } {
+  if (!meiOpenedAt) return { limit: annualLimit, isProportional: false, activeMonths: 12 };
+  const opened = fromISODate(meiOpenedAt);
+  if (getYear(opened) !== year) return { limit: annualLimit, isProportional: false, activeMonths: 12 };
   const months = 12 - getMonth(opened);
-  return { limit: Math.round((baseLimit / 12) * months), isProportional: months < 12 };
+  return { limit: Math.round((annualLimit / 12) * months), isProportional: months < 12, activeMonths: months };
 }
 
 export function meiLevel(ratio: number): MeiLevel {
@@ -76,19 +57,13 @@ export function meiLevel(ratio: number): MeiLevel {
 }
 
 export function computeMeiStatus(input: {
-  regime: Regime;
-  customLimit?: Cents | null;
-  cnpjOpenedAt?: ISODate | null;
+  meiOpenedAt?: ISODate | null;
   usedThisYear: Cents;
   today?: Date;
 }): MeiStatus {
   const today = input.today ?? new Date();
   const year = getYear(today);
-  const { limit, isProportional } = limitForYear(
-    annualLimit(input.regime, input.customLimit),
-    year,
-    input.cnpjOpenedAt,
-  );
+  const { limit, isProportional, activeMonths } = limitForYear(year, input.meiOpenedAt);
   const used = Math.max(0, input.usedThisYear);
   const remaining = Math.max(0, limit - used);
   const monthsLeft = 12 - getMonth(today);
@@ -97,6 +72,7 @@ export function computeMeiStatus(input: {
     year,
     limit,
     isProportional,
+    activeMonths,
     used,
     ratio,
     remaining,
@@ -124,7 +100,7 @@ export function meiMessage(s: MeiStatus): string {
   }
 }
 
-/** Mês (1–12) em que o acumulado projetado passa do limite, ou null. */
+/** Mês em que o acumulado projetado passa do teto, ou null. */
 export function monthLimitReached(
   limit: Cents,
   monthlyRevenue: { month: ISODate; revenue: Cents }[],
