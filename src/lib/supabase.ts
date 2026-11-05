@@ -6,10 +6,15 @@ import { AppState, Platform } from 'react-native';
 
 import type { Database } from './database.types';
 
+// O Expo só embute variáveis lidas assim, por extenso (process.env.EXPO_PUBLIC_...).
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// O Supabase chama a chave pública de "anon" (formato antigo, eyJ...) ou "publishable" (sb_publishable_...).
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
+
+/** Para a tela de configuração pendente dizer o que falta. */
+export const supabaseConfigStatus = { hasUrl: Boolean(url), hasKey: Boolean(anonKey) };
 
 export const supabase = createClient<Database>(
   url || 'http://localhost:54321',

@@ -34,7 +34,8 @@ npm run db:start
 ```
 
 O comando acima sobe o Supabase local, aplica `supabase/migrations` e carrega `supabase/seed.sql`
-(dados de demonstração). Copie a `ANON_KEY` que ele imprime para o `.env.local`:
+(dados de demonstração). Copie a chave **Publishable** que ele imprime para o `.env.local`
+(nunca a Secret):
 
 ```bash
 cp .env.example .env.local
@@ -42,7 +43,7 @@ cp .env.example .env.local
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY impressa pelo db:start>
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<chave "Publishable" (sb_publishable_...) impressa pelo db:start>
 ```
 
 ```bash

@@ -1,25 +1,54 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors } from '@/theme/tokens';
+import { supabaseConfigStatus } from '@/lib/supabase';
+import { colors, radius } from '@/theme/tokens';
 
 import { Logo } from './Logo';
 import { AppText, Screen } from './ui';
 
 /** Exibida quando o app foi iniciado sem as variáveis do Supabase. */
 export function ConfigMissing() {
+  const { hasUrl, hasKey } = supabaseConfigStatus;
   return (
     <Screen background={colors.surface}>
       <View style={styles.wrap}>
         <Logo size="lg" />
         <AppText variant="title">Configuração pendente</AppText>
+        <AppText>O app não encontrou os dados de conexão com o Supabase:</AppText>
+        <View style={styles.list}>
+          <Item ok={hasUrl} name="EXPO_PUBLIC_SUPABASE_URL" />
+          <Item ok={hasKey} name="EXPO_PUBLIC_SUPABASE_ANON_KEY (ou EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY)" />
+        </View>
+        <AppText>Crie o arquivo .env.local na raiz do projeto (junto do package.json):</AppText>
+        <AppText style={styles.code} selectable>
+          {'EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321\nEXPO_PUBLIC_SUPABASE_ANON_KEY=<chave Publishable>'}
+        </AppText>
         <AppText>
-          Crie o arquivo <AppText weight="700">.env.local</AppText> a partir do{' '}
-          <AppText weight="700">.env.example</AppText> com a URL e a chave pública do seu projeto Supabase e reinicie o
-          app. Veja o passo a passo no README.
+          Depois pare o Expo (Ctrl+C) e rode de novo com <AppText weight="700">npx expo start --clear</AppText>. Na
+          saída deve aparecer “env: load .env.local”.
         </AppText>
       </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({ wrap: { gap: 16, maxWidth: 520, alignSelf: 'center', paddingTop: 48 } });
+function Item({ ok, name }: { ok: boolean; name: string }) {
+  return (
+    <AppText color={ok ? colors.positive : colors.negative} weight="600">
+      {ok ? '✓ encontrada: ' : '✗ faltando: '}
+      {name}
+    </AppText>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: { gap: 16, maxWidth: 620, alignSelf: 'center', paddingTop: 48 },
+  list: { gap: 6 },
+  code: {
+    fontFamily: 'monospace',
+    fontSize: 15,
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: radius.sm,
+  },
+});
