@@ -13,7 +13,7 @@ export function NoteCard({ note, authorLabel, onPress }: { note: NoteRow; author
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
-      <AppText variant="label" numberOfLines={2}>
+      <AppText variant="label">
         {note.title}
       </AppText>
       <View style={styles.meta}>

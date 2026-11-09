@@ -25,13 +25,13 @@ export function TripCard({ trip, author, onPress }: { trip: TripRow; author?: st
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
       <View style={styles.top}>
         <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="label" numberOfLines={2}>
+          <AppText variant="label">
             {tripTitle(trip)}
           </AppText>
           {place ? (
             <View style={styles.meta}>
               <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-              <AppText variant="small" color={colors.textMuted} numberOfLines={1} style={{ flex: 1 }}>
+              <AppText variant="small" color={colors.textMuted} style={{ flex: 1 }}>
                 {place}
               </AppText>
             </View>
@@ -67,7 +67,7 @@ function Value({ label, value, tone }: { label: string; value: string; tone?: 'p
       <AppText variant="caption" color={tone ? fg : colors.textMuted}>
         {label}
       </AppText>
-      <AppText variant="small" weight="700" color={fg} numberOfLines={1} adjustsFontSizeToFit>
+      <AppText variant="small" weight="700" color={fg}>
         {value}
       </AppText>
     </View>

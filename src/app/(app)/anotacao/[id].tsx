@@ -88,6 +88,7 @@ function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existin
             setError(undefined);
           }}
           placeholder="Ex.: Cliente paga só no dia 10"
+          autoGrow
           error={error}
         />
         <DateField label="Data" value={date} onChange={setDate} />

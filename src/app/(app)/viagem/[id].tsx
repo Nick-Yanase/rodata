@@ -209,6 +209,7 @@ function TripForm({
           value={form.title}
           onChangeText={(t) => set('title', t)}
           placeholder="Ex.: Carga de soja – cliente João"
+          autoGrow
          
           optional
         />

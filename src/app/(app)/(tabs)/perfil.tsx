@@ -108,7 +108,7 @@ function OrganizationCard({ org }: { org: MyOrganization }) {
         <Ionicons name="business-outline" size={24} color={colors.primary} />
         <AppText variant="title">Organização</AppText>
       </View>
-      <TextField label="Nome da organização" value={name} onChangeText={setName} autoCapitalize="words" />
+      <TextField label="Nome da organização" value={name} onChangeText={setName} autoCapitalize="words" autoGrow />
       {changed ? (
         <Button
           title="Salvar nome"

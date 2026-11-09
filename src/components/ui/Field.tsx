@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { colors, font, radius, space } from '@/theme/tokens';
@@ -42,9 +42,26 @@ export type TextFieldProps = TextInputProps & {
   optional?: boolean;
   prefix?: string;
   right?: ReactNode;
+  /**
+   * Campo de uma linha que cresce para baixo quando o texto não cabe
+   * (ex.: nome da viagem longo), em vez de esconder o começo do texto.
+   */
+  autoGrow?: boolean;
 };
 
-export function TextField({ label, error, hint, optional, prefix, right, style, ...input }: TextFieldProps) {
+export function TextField({ label, error, hint, optional, prefix, right, style, autoGrow, ...input }: TextFieldProps) {
+  const [height, setHeight] = useState<number>();
+  const growProps = autoGrow
+    ? {
+        multiline: true,
+        scrollEnabled: false,
+        // Enter confirma em vez de quebrar linha
+        submitBehavior: 'blurAndSubmit' as const,
+        onChangeText: (t: string) => input.onChangeText?.(t.replace(/\n/g, ' ')),
+        onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) =>
+          setHeight(Math.ceil(e.nativeEvent.contentSize.height)),
+      }
+    : {};
   return (
     <Field label={label} error={error} hint={hint} optional={optional}>
       <View style={[styles.box, error ? styles.boxError : null]}>
@@ -57,8 +74,9 @@ export function TextField({ label, error, hint, optional, prefix, right, style, 
           accessibilityLabel={label}
           placeholderTextColor={colors.textSubtle}
           maxFontSizeMultiplier={1.6}
-          style={[styles.input, style]}
           {...input}
+          {...growProps}
+          style={[styles.input, autoGrow && styles.grow, autoGrow && height ? { height: Math.max(52, height + 4) } : null, style]}
         />
         {right}
       </View>
@@ -87,4 +105,5 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     minHeight: 52,
   },
+  grow: { textAlignVertical: 'center' },
 });
