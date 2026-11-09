@@ -4,10 +4,11 @@ import { useDeferredValue, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Fab, FAB_CLEARANCE } from '@/components/Fab';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TripCard } from '@/components/TripCard';
-import { AppText, Button, Chip, EmptyState } from '@/components/ui';
+import { AppText, Chip, EmptyState } from '@/components/ui';
 import { useActiveOrg, useSession } from '@/features/auth/session';
 import { useAuthorLabel } from '@/features/settings/api';
 import { useTrips, type TripSort } from '@/features/trips/api';
@@ -88,18 +89,14 @@ export default function TripsList() {
           trips.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ margin: 16 }} /> : undefined
         }
       />
-      <View style={styles.footer}>
-        <View style={styles.footerInner}>
-          <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
-        </View>
-      </View>
+      <Fab label="Nova viagem" onPress={() => router.push('/viagem/nova')} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  list: { padding: space.lg, paddingBottom: space.xxl, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
+  list: { padding: space.lg, paddingBottom: FAB_CLEARANCE, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
   header: { gap: space.md, marginBottom: space.md },
   search: {
     flexDirection: 'row',
@@ -114,6 +111,4 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: font.body, color: colors.text, paddingVertical: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  footer: { padding: space.lg, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
-  footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
 });

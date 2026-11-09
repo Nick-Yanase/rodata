@@ -12,8 +12,9 @@ import { AppText, Button, Card } from './ui';
 
 const levelColor = {
   ok: colors.positive,
+  // 3 estágios do termômetro: verde (< 70%), amarelo (70–90%), vermelho (≥ 90%)
   attention: colors.warning,
-  warning: colors.warning,
+  warning: colors.negative,
   reached: colors.negative,
   over_tolerance: colors.negative,
   over_20: colors.negative,

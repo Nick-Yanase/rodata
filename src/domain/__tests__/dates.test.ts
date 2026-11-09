@@ -44,3 +44,14 @@ describe('mês/ano', () => {
     expect(formatMonthYear('2026-08-01')).toBe('08/2026');
   });
 });
+
+describe('mês escolhido', () => {
+  it('compara com o mês anterior, inclusive na virada do ano', async () => {
+    const { resolveMonth } = await import('../dates');
+    expect(resolveMonth('2026-03-15')).toEqual({
+      current: { start: '2026-03-01', end: '2026-03-31' },
+      previous: { start: '2026-02-01', end: '2026-02-28' },
+    });
+    expect(resolveMonth('2026-01-01').previous).toEqual({ start: '2025-12-01', end: '2025-12-31' });
+  });
+});

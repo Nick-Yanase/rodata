@@ -19,6 +19,10 @@ type Props = {
   refreshing?: boolean;
   onRefresh?: () => void;
   background?: string;
+  /** elemento flutuante sobre o conteúdo (ex.: botão +) */
+  overlay?: ReactNode;
+  /** espaço extra no fim da rolagem */
+  bottomSpace?: number;
 };
 
 /** Container padrão: área segura, rolagem, teclado e largura máxima na web. */
@@ -30,6 +34,8 @@ export function Screen({
   refreshing,
   onRefresh,
   background = colors.background,
+  overlay,
+  bottomSpace = 0,
 }: Props) {
   const content = <View style={styles.inner}>{children}</View>;
   return (
@@ -39,7 +45,7 @@ export function Screen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
-            contentContainerStyle={styles.scroll}
+            contentContainerStyle={[styles.scroll, bottomSpace ? { paddingBottom: bottomSpace } : null]}
             keyboardShouldPersistTaps="handled"
             refreshControl={
               onRefresh ? (
@@ -56,6 +62,7 @@ export function Screen({
             <View style={styles.footerInner}>{footer}</View>
           </View>
         ) : null}
+        {overlay}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

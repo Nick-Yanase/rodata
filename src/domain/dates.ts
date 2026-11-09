@@ -114,6 +114,16 @@ export function resolvePreset(preset: PeriodPreset, today = new Date()): {
   }
 }
 
+/** Um mês escolhido pelo usuário: compara com o mês anterior. */
+export function resolveMonth(month: ISODate): { current: Period; previous: Period } {
+  const start = startOfMonth(fromISODate(month));
+  const prevStart = subMonths(start, 1);
+  return {
+    current: { start: toISODate(start), end: toISODate(endOfMonth(start)) },
+    previous: { start: toISODate(prevStart), end: toISODate(endOfMonth(prevStart)) },
+  };
+}
+
 export type Grain = 'day' | 'week' | 'month';
 
 /** Granularidade padrão do gráfico conforme o tamanho do período. */

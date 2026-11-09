@@ -6,20 +6,25 @@ import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { CostBreakdown } from '@/components/CostBreakdown';
 import { ForecastCard } from '@/components/ForecastCard';
-import { KpiCard } from '@/components/KpiCard';
+import { Fab, FAB_CLEARANCE } from '@/components/Fab';
 import { Logo } from '@/components/Logo';
 import { MeiCard } from '@/components/MeiCard';
+import { MonthPicker } from '@/components/MonthPicker';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
+import { RevenueCard } from '@/components/RevenueCard';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TimelineChart } from '@/components/TimelineChart';
-import { AppText, Button, Card, Chip, Screen, Segmented } from '@/components/ui';
+import { AppText, Card, Chip, Screen, Segmented } from '@/components/ui';
 import {
   defaultGrain,
   formatDateBR,
+  formatMonthLong,
   isGrainAllowed,
   PERIOD_PRESETS,
+  resolveMonth,
   resolvePreset,
   toISODate,
+  type ISODate,
   type Grain,
   type PeriodPreset,
 } from '@/domain/dates';
@@ -42,9 +47,13 @@ const GRAINS: { id: Grain; label: string }[] = [
 export default function Dashboard() {
   const { activeOrg, profile } = useSession();
   const orgId = activeOrg?.id ?? null;
-  const [preset, setPreset] = useState<PeriodPreset>('this_month');
+  // período: um atalho (este mês, este ano…) ou um mês escolhido
+  const [period, setPeriod] = useState<{ preset: PeriodPreset } | { month: ISODate }>({ preset: 'this_month' });
   const [compare, setCompare] = useState(true);
-  const { current, previous } = useMemo(() => resolvePreset(preset), [preset]);
+  const { current, previous } = useMemo(
+    () => ('month' in period ? resolveMonth(period.month) : resolvePreset(period.preset)),
+    [period],
+  );
   const [grainChoice, setGrainChoice] = useState<Grain | null>(null);
   const grain = grainChoice && isGrainAllowed(current, grainChoice) ? grainChoice : defaultGrain(current);
 
@@ -63,7 +72,10 @@ export default function Dashboard() {
 
   const cur = summary.data?.current;
   const prev = summary.data?.previous;
-  const presetLabel = PERIOD_PRESETS.find((p) => p.id === preset)!.label.toLowerCase();
+  const presetLabel =
+    'month' in period
+      ? `em ${formatMonthLong(period.month)}`
+      : PERIOD_PRESETS.find((p) => p.id === period.preset)!.label.toLowerCase();
 
   // ----- MEI + previsão -----
   const today = new Date();
@@ -109,7 +121,11 @@ export default function Dashboard() {
   };
 
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      bottomSpace={FAB_CLEARANCE}
+      overlay={<Fab label="Nova viagem" onPress={() => router.push('/viagem/nova')} />}>
       <Header initial={firstName[0]} />
       <SyncStatus />
       <OrgSwitcher />
@@ -125,7 +141,7 @@ export default function Dashboard() {
         {cur ? (
           <AppText color={colors.textMuted}>
             {cur.trips === 0
-              ? `Nenhuma viagem lançada (${presetLabel}).`
+              ? `Nenhuma viagem lançada ${'month' in period ? presetLabel : `(${presetLabel})`}.`
               : `${capitalize(presetLabel)}: ${cur.trips} ${cur.trips === 1 ? 'viagem' : 'viagens'}, sobraram `}
             {cur.trips > 0 ? (
               <AppText weight="700" color={cur.net < 0 ? colors.negative : colors.positive}>
@@ -137,16 +153,20 @@ export default function Dashboard() {
         ) : null}
       </View>
 
-      <Button title="Nova viagem" icon="add-circle" onPress={() => router.push('/viagem/nova')} />
-
       {/* Período analisado × comparado (RF-40) */}
       <Card>
         <AppText variant="label">Período analisado</AppText>
         <View style={styles.chips}>
           {PERIOD_PRESETS.map((p) => (
-            <Chip key={p.id} label={p.label} selected={p.id === preset} onPress={() => setPreset(p.id)} />
+            <Chip
+              key={p.id}
+              label={p.label}
+              selected={'preset' in period && p.id === period.preset}
+              onPress={() => setPeriod({ preset: p.id })}
+            />
           ))}
         </View>
+        <MonthPicker value={'month' in period ? period.month : null} onChange={(month) => setPeriod({ month })} />
         <AppText variant="small" color={colors.textMuted}>
           {formatDateBR(current.start)} a {formatDateBR(current.end)}
         </AppText>
@@ -177,24 +197,25 @@ export default function Dashboard() {
 
       {cur && prev ? (
         <>
-          <View style={styles.kpis}>
-            <KpiCard
-              title="Receita total"
-              subtitle="Soma dos fretes"
-              icon="cash-outline"
-              value={cur.revenue}
-              variation={variation(cur.revenue, prev.revenue)}
-              showVariation={compare}
-            />
-            <KpiCard
-              title="Receita faturada"
-              subtitle="Frete − custos"
-              icon="trending-up-outline"
-              value={cur.net}
-              variation={variation(cur.net, prev.net)}
-              showVariation={compare}
-            />
-          </View>
+          <RevenueCard
+            showVariation={compare}
+            rows={[
+              {
+                title: 'Receita total',
+                subtitle: 'Soma dos fretes',
+                icon: 'cash-outline',
+                value: cur.revenue,
+                variation: variation(cur.revenue, prev.revenue),
+              },
+              {
+                title: 'Receita faturada',
+                subtitle: 'Frete − custos',
+                icon: 'trending-up-outline',
+                value: cur.net,
+                variation: variation(cur.net, prev.net),
+              },
+            ]}
+          />
           <AppText variant="small" color={colors.textMuted} align="center">
             Margem: {formatPercent(margin(cur))} · {cur.trips} {cur.trips === 1 ? 'viagem' : 'viagens'}
             {cur.trips > 0 ? ` · frete médio ${formatBRL(Math.round(cur.revenue / cur.trips))}` : ''}
@@ -284,6 +305,5 @@ const styles = StyleSheet.create({
   hello: { gap: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  kpis: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   cardHead: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
 });
