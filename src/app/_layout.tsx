@@ -6,6 +6,7 @@ import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ConfigMissing } from '@/components/ConfigMissing';
@@ -24,22 +25,24 @@ const theme = {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={theme}>
-        <PersistQueryClientProvider
-          client={queryClient}
-          persistOptions={{ persister, maxAge: PERSIST_MAX_AGE, buster: 'v1' }}
-          // reenvia o que ficou guardado sem internet na última vez que o app foi usado
-          onSuccess={() => queryClient.resumePausedMutations()}>
-          <SessionProvider>
-            <ToastProvider>
-              <StatusBar style="dark" />
-              <RootNavigator />
-            </ToastProvider>
-          </SessionProvider>
-        </PersistQueryClientProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider value={theme}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister, maxAge: PERSIST_MAX_AGE, buster: 'v1' }}
+            // reenvia o que ficou guardado sem internet na última vez que o app foi usado
+            onSuccess={() => queryClient.resumePausedMutations()}>
+            <SessionProvider>
+              <ToastProvider>
+                <StatusBar style="dark" />
+                <RootNavigator />
+              </ToastProvider>
+            </SessionProvider>
+          </PersistQueryClientProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

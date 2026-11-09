@@ -6,6 +6,7 @@ import { LineChart } from 'react-native-gifted-charts';
 
 import { fromISODate, type Grain } from '@/domain/dates';
 import { formatBRL, formatBRLCompact } from '@/domain/money';
+import { swipeLock } from '@/lib/swipeLock';
 import type { TimelinePoint } from '@/features/dashboard/api';
 import { colors, radius } from '@/theme/tokens';
 
@@ -155,12 +156,22 @@ export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points
           <View
             style={[styles.touch, { left: Y_AXIS_WIDTH, width: chartWidth, height: plotHeight }]}
             onStartShouldSetResponder={() => true}
-            onResponderGrant={pick}
+            onResponderGrant={(e) => {
+              // arrastar no gráfico mostra valores, não troca de aba
+              swipeLock.on();
+              pick(e);
+            }}
             onResponderMove={pick}
-            onResponderRelease={() => setActive(null)}
+            onResponderRelease={() => {
+              swipeLock.off();
+              setActive(null);
+            }}
             // deixa a tela rolar se o dedo se mover na vertical
             onResponderTerminationRequest={() => true}
-            onResponderTerminate={() => setActive(null)}
+            onResponderTerminate={() => {
+              swipeLock.off();
+              setActive(null);
+            }}
             onPointerMove={(e) => (e.nativeEvent.pointerType === 'mouse' ? pick(e) : undefined)}
             onPointerLeave={() => setActive(null)}>
             {activePoint ? (

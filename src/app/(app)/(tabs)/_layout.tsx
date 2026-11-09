@@ -4,6 +4,7 @@ import type { ColorValue } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 
+import { SwipeTabs } from '@/components/SwipeTabs';
 import { useSession } from '@/features/auth/session';
 
 import { colors } from '@/theme/tokens';
@@ -23,6 +24,12 @@ export default function TabsLayout() {
   if (organizationsLoaded && organizations.length === 0) return <Redirect href="/comecar" />;
   return (
     <Tabs
+      // deslizar o dedo para os lados troca de aba
+      screenLayout={({ route, navigation, children }) => (
+        <SwipeTabs routeName={route.name} onNavigate={(name) => navigation.navigate(name)}>
+          {children}
+        </SwipeTabs>
+      )}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primaryStrong,
