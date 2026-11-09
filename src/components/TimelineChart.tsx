@@ -1,89 +1,191 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 
 import { fromISODate, type Grain } from '@/domain/dates';
 import { formatBRL, formatBRLCompact } from '@/domain/money';
 import type { TimelinePoint } from '@/features/dashboard/api';
-import { colors } from '@/theme/tokens';
+import { colors, radius } from '@/theme/tokens';
 
 import { AppText } from './ui';
 
-function label(bucket: string, grain: Grain) {
+/** Quais séries comparar no gráfico. */
+export type ChartView = 'revenue_cost' | 'revenue_net';
+
+export const CHART_VIEWS: { id: ChartView; label: string }[] = [
+  { id: 'revenue_cost', label: 'Receita × Custos' },
+  { id: 'revenue_net', label: 'Total × Faturada' },
+];
+
+type Series = { label: string; color: string; value: (p: TimelinePoint) => number };
+
+const SERIES: Record<ChartView, [Series, Series]> = {
+  revenue_cost: [
+    { label: 'Receita total', color: colors.chartRevenue, value: (p) => p.revenue },
+    { label: 'Custos', color: colors.chartCost, value: (p) => p.cost },
+  ],
+  revenue_net: [
+    { label: 'Receita total', color: colors.chartRevenue, value: (p) => p.revenue },
+    { label: 'Receita faturada', color: colors.chartNet, value: (p) => p.revenue - p.cost },
+  ],
+};
+
+const HEIGHT = 200;
+const SECTIONS = 4;
+const Y_AXIS_WIDTH = 64;
+
+/** Só a primeira letra maiúscula ("Junho de 2026", não "Junho De 2026"). */
+function capitalizeFirst(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function shortLabel(bucket: string, grain: Grain) {
   const d = fromISODate(bucket);
-  if (grain === 'month') return format(d, 'MMM', { locale: ptBR });
+  if (grain === 'month') return capitalizeFirst(format(d, 'MMM', { locale: ptBR }));
   return format(d, 'dd/MM');
 }
 
-/** Receita total × custo ao longo do tempo (RF-43). */
-export function TimelineChart({ points, grain }: { points: TimelinePoint[]; grain: Grain }) {
+function longLabel(bucket: string, grain: Grain) {
+  const d = fromISODate(bucket);
+  if (grain === 'month') return capitalizeFirst(format(d, "MMMM 'de' yyyy", { locale: ptBR }));
+  if (grain === 'week') return `Semana de ${format(d, 'dd/MM')}`;
+  return capitalizeFirst(format(d, 'EEEE, dd/MM', { locale: ptBR }));
+}
+
+/** Escala "redonda" para o eixo Y (em reais), cobrindo o maior valor. */
+function niceStep(maxReais: number) {
+  if (maxReais <= 0) return 1;
+  const raw = maxReais / SECTIONS;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const nice = [1, 2, 2.5, 5, 10].find((m) => m * pow >= raw) ?? 10;
+  return nice * pow;
+}
+
+/** Linha do tempo (RF-43) com tooltip ao passar o mouse ou arrastar o dedo. */
+export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points: TimelinePoint[]; grain: Grain; view?: ChartView }) {
   const [width, setWidth] = useState(0);
+  const [active, setActive] = useState<number | null>(null);
   const onLayout = (e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width));
 
+  const [s1, s2] = SERIES[view];
   const n = points.length;
-  const yAxisWidth = 64;
-  const chartWidth = Math.max(0, width - yAxisWidth - 16);
+  const chartWidth = Math.max(0, width - Y_AXIS_WIDTH - 16);
   const spacing = n > 1 ? Math.max(8, chartWidth / (n - 1)) : chartWidth;
   // mostra no máximo ~6 rótulos no eixo X para não embolar
   const every = Math.max(1, Math.ceil(n / 6));
 
-  const toData = (key: 'revenue' | 'cost') =>
-    points.map((p) => ({ value: p[key] / 100 }));
+  const v1 = points.map((p) => s1.value(p) / 100);
+  const v2 = points.map((p) => s2.value(p) / 100);
+  const step = niceStep(Math.max(0, ...v1, ...v2));
+  const min = Math.min(0, ...v1, ...v2);
+  // receita faturada pode ficar negativa (gastos maiores que o frete): abre seções abaixo do zero
+  const sectionsBelow = min < 0 ? Math.ceil(-min / step) : 0;
+  const plotHeight = HEIGHT + sectionsBelow * (HEIGHT / SECTIONS);
 
-  // Rótulos do eixo X desenhados por nós: os da biblioteca ficam cortados quando os pontos são próximos.
   const xLabels = points
-    .map((p, i) => ({ i, text: label(p.bucket, grain) }))
+    .map((p, i) => ({ i, text: shortLabel(p.bucket, grain) }))
     .filter(({ i }) => i % every === 0);
 
-  const totalRevenue = points.reduce((a, p) => a + p.revenue, 0);
-  const totalCost = points.reduce((a, p) => a + p.cost, 0);
+  function pick(e: GestureResponderEvent | { nativeEvent: { offsetX?: number; locationX?: number } }) {
+    const x = e.nativeEvent.locationX ?? (e.nativeEvent as { offsetX?: number }).offsetX ?? 0;
+    if (n === 0) return;
+    const i = Math.round(x / (spacing || 1));
+    setActive(Math.min(n - 1, Math.max(0, i)));
+  }
+
+  const total1 = points.reduce((a, p) => a + s1.value(p), 0);
+  const total2 = points.reduce((a, p) => a + s2.value(p), 0);
+  const activePoint = active !== null ? points[active] : null;
+  const tooltipLeft = active !== null ? Math.min(Math.max(active * spacing - 90, 0), Math.max(0, chartWidth - 180)) : 0;
 
   return (
     <View
       onLayout={onLayout}
       style={styles.wrap}
       accessible
-      accessibilityLabel={`Gráfico: receita total de ${formatBRL(totalRevenue)} e custos de ${formatBRL(totalCost)} no período`}>
+      accessibilityLabel={`Gráfico: ${s1.label} de ${formatBRL(total1)} e ${s2.label} de ${formatBRL(total2)} no período`}>
       <View style={styles.legend}>
-        <LegendItem color={colors.chartRevenue} text="Receita total" />
-        <LegendItem color={colors.chartCost} text="Custos" />
+        <LegendItem color={s1.color} text={s1.label} />
+        <LegendItem color={s2.color} text={s2.label} />
       </View>
       {width > 0 && n > 0 ? (
-        <LineChart
-          data={toData('revenue')}
-          data2={toData('cost')}
-          areaChart
-          height={200}
-          width={chartWidth}
-          spacing={spacing}
-          initialSpacing={0}
-          endSpacing={0}
-          adjustToWidth
-          color1={colors.chartRevenue}
-          color2={colors.chartCost}
-          startFillColor1={colors.chartRevenue}
-          startFillColor2={colors.chartCost}
-          endFillColor1="#FFFFFF"
-          endFillColor2="#FFFFFF"
-          startOpacity={0.25}
-          endOpacity={0.02}
-          thickness={3}
-          hideDataPoints={n > 16}
-          dataPointsColor1={colors.chartRevenue}
-          dataPointsColor2={colors.chartCost}
-          noOfSections={4}
-          yAxisLabelWidth={yAxisWidth}
-          formatYLabel={(v) => formatBRLCompact(Math.round(Number(v) * 100))}
-          yAxisTextStyle={styles.axis}
-          xAxisLabelTextStyle={styles.axis}
-          yAxisColor={colors.border}
-          xAxisColor={colors.border}
-          rulesColor={colors.track}
-          disableScroll
-          xAxisLabelsHeight={0}
-        />
+        <View>
+          <LineChart
+            key={view}
+            data={v1.map((value) => ({ value }))}
+            data2={v2.map((value) => ({ value }))}
+            areaChart
+            height={HEIGHT}
+            width={chartWidth}
+            spacing={spacing}
+            initialSpacing={0}
+            endSpacing={0}
+            adjustToWidth
+            maxValue={step * SECTIONS}
+            stepValue={step}
+            noOfSections={SECTIONS}
+            noOfSectionsBelowXAxis={sectionsBelow}
+            mostNegativeValue={sectionsBelow ? -sectionsBelow * step : undefined}
+            color1={s1.color}
+            color2={s2.color}
+            startFillColor1={s1.color}
+            startFillColor2={s2.color}
+            endFillColor1="#FFFFFF"
+            endFillColor2="#FFFFFF"
+            startOpacity={0.25}
+            endOpacity={0.02}
+            thickness={3}
+            hideDataPoints={n > 16}
+            dataPointsColor1={s1.color}
+            dataPointsColor2={s2.color}
+            yAxisLabelWidth={Y_AXIS_WIDTH}
+            formatYLabel={(v) => formatBRLCompact(Math.round(Number(v) * 100))}
+            yAxisTextStyle={styles.axis}
+            yAxisColor={colors.border}
+            xAxisColor={colors.border}
+            rulesColor={colors.track}
+            disableScroll
+            xAxisLabelsHeight={0}
+            isAnimated
+            animationDuration={500}
+          />
+          {/* Camada que captura mouse/dedo sobre a área do gráfico */}
+          <View
+            style={[styles.touch, { left: Y_AXIS_WIDTH, width: chartWidth, height: plotHeight }]}
+            onStartShouldSetResponder={() => true}
+            onResponderGrant={pick}
+            onResponderMove={pick}
+            onResponderRelease={() => setActive(null)}
+            // deixa a tela rolar se o dedo se mover na vertical
+            onResponderTerminationRequest={() => true}
+            onResponderTerminate={() => setActive(null)}
+            onPointerMove={(e) => (e.nativeEvent.pointerType === 'mouse' ? pick(e) : undefined)}
+            onPointerLeave={() => setActive(null)}>
+            {activePoint ? (
+              <>
+                <View style={[styles.cursor, { left: active! * spacing }]} pointerEvents="none" />
+                <View style={[styles.tooltip, { left: tooltipLeft }]} pointerEvents="none">
+                  <AppText variant="caption" weight="700">
+                    {longLabel(activePoint.bucket, grain)}
+                  </AppText>
+                  {[s1, s2].map((s) => (
+                    <View key={s.label} style={styles.tooltipRow}>
+                      <View style={[styles.dotSmall, { backgroundColor: s.color }]} />
+                      <AppText variant="caption" style={{ flex: 1 }}>
+                        {s.label}
+                      </AppText>
+                      <AppText variant="caption" weight="700" color={s.value(activePoint) < 0 ? colors.negative : colors.text}>
+                        {formatBRL(s.value(activePoint))}
+                      </AppText>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
       ) : null}
       {width > 0 && n > 0 ? (
         <View style={styles.xLabels} accessible={false}>
@@ -92,12 +194,15 @@ export function TimelineChart({ points, grain }: { points: TimelinePoint[]; grai
               key={i}
               variant="caption"
               color={colors.textMuted}
-              style={[styles.xLabel, { left: yAxisWidth + i * spacing - 26 }]}>
+              style={[styles.xLabel, { left: Y_AXIS_WIDTH + i * spacing - 26 }]}>
               {text}
             </AppText>
           ))}
         </View>
       ) : null}
+      <AppText variant="caption" color={colors.textMuted}>
+        Toque e arraste no gráfico para ver os valores.
+      </AppText>
     </View>
   );
 }
@@ -116,7 +221,27 @@ const styles = StyleSheet.create({
   legend: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 14, height: 14, borderRadius: 7 },
+  dotSmall: { width: 10, height: 10, borderRadius: 5 },
   axis: { color: colors.textMuted, fontSize: 12 },
   xLabels: { height: 20, marginTop: -8 },
-  xLabel: { position: 'absolute', width: 52, textAlign: 'center', fontSize: 12, textTransform: 'capitalize' },
+  xLabel: { position: 'absolute', width: 52, textAlign: 'center', fontSize: 12 },
+  touch: { position: 'absolute', top: 0 },
+  cursor: { position: 'absolute', top: 0, bottom: 0, width: 2, marginLeft: -1, backgroundColor: colors.textSubtle },
+  tooltip: {
+    position: 'absolute',
+    top: 0,
+    width: 180,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 8,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  tooltipRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

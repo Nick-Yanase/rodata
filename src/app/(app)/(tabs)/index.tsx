@@ -13,7 +13,7 @@ import { MonthPicker } from '@/components/MonthPicker';
 import { OrgSwitcher } from '@/components/OrgSwitcher';
 import { RevenueCard } from '@/components/RevenueCard';
 import { SyncStatus } from '@/components/SyncStatus';
-import { TimelineChart } from '@/components/TimelineChart';
+import { CHART_VIEWS, TimelineChart, type ChartView } from '@/components/TimelineChart';
 import { AppText, Card, Chip, Screen, Segmented } from '@/components/ui';
 import {
   defaultGrain,
@@ -55,6 +55,7 @@ export default function Dashboard() {
     [period],
   );
   const [grainChoice, setGrainChoice] = useState<Grain | null>(null);
+  const [chartView, setChartView] = useState<ChartView>('revenue_cost');
   const grain = grainChoice && isGrainAllowed(current, grainChoice) ? grainChoice : defaultGrain(current);
 
   const summary = useSummary(orgId, current, previous);
@@ -230,7 +231,7 @@ export default function Dashboard() {
           <View style={{ flex: 1 }}>
             <AppText variant="label">Linha do tempo</AppText>
             <AppText variant="caption" color={colors.textMuted}>
-              Fretes e custos no período selecionado
+              Valores no período selecionado
             </AppText>
           </View>
         </View>
@@ -240,7 +241,8 @@ export default function Dashboard() {
           value={grain}
           onChange={setGrainChoice}
         />
-        {timeline.data ? <TimelineChart points={timeline.data} grain={grain} /> : null}
+        <Segmented accessibilityLabel="Comparar" options={CHART_VIEWS} value={chartView} onChange={setChartView} />
+        {timeline.data ? <TimelineChart points={timeline.data} grain={grain} view={chartView} /> : null}
       </Card>
 
       {meiStatus ? (
