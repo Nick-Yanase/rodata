@@ -2,6 +2,7 @@ export { AppText } from './AppText';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Chip } from './Chip';
+export { CityField } from './CityField';
 export { confirm } from './confirm';
 export { DateField } from './DateField';
 export { EmptyState } from './EmptyState';

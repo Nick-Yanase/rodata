@@ -38,6 +38,8 @@ export type NoteRow = {
 export type ProfileRow = Timestamps & {
   id: string;
   name: string;
+  /** cidade base, usada como origem padrão das viagens ("Bauru - SP") */
+  home_city: string;
 };
 
 export type OrganizationRow = Timestamps & {

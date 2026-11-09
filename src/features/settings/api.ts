@@ -38,11 +38,11 @@ export function useSaveOrgSettings() {
 // Perfil
 // ---------------------------------------------------------------------------
 
-export function useUpdateName() {
+export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { error } = await supabase.from('profiles').update({ name }).eq('id', id);
+    mutationFn: async ({ id, ...changes }: { id: string; name?: string; home_city?: string }) => {
+      const { error } = await supabase.from('profiles').update(changes).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

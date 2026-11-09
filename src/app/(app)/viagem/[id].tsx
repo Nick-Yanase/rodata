@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { tripTitle } from '@/components/TripCard';
-import { AppText, Button, Card, confirm, DateField, EmptyState, MoneyField, Screen, TextField, useToast } from '@/components/ui';
+import { AppText, Button, Card, CityField, confirm, DateField, EmptyState, MoneyField, Screen, TextField, useToast } from '@/components/ui';
 import { toISODate } from '@/domain/dates';
 import { COST_CATEGORIES, type CostCategory } from '@/domain/metrics';
 import { formatBRL, sumCents } from '@/domain/money';
@@ -62,6 +62,7 @@ export default function TripScreen() {
   const existing = useTrip(isNew ? undefined : id);
   const source = useTrip(isNew ? copiar : undefined);
 
+  const { profile } = useSession();
   const loading = isNew ? Boolean(copiar) && source.isLoading : existing.isLoading;
   if ((!isNew && !existing.data) || loading) {
     return (
@@ -75,7 +76,13 @@ export default function TripScreen() {
     );
   }
 
-  const initial = !isNew && existing.data ? fromRow(existing.data) : source.data ? fromRow(source.data, false) : empty();
+  // viagem nova: sai da cidade base da pessoa (como o endereço salvo de um app de delivery)
+  const initial =
+    !isNew && existing.data
+      ? fromRow(existing.data)
+      : source.data
+        ? fromRow(source.data, false)
+        : { ...empty(), origin: profile?.home_city ?? '' };
   return <TripForm key={`${id}-${copiar ?? ''}`} id={id} isNew={isNew} copied={Boolean(copiar)} existing={existing.data ?? undefined} initial={initial} />;
 }
 
@@ -93,7 +100,7 @@ function TripForm({
   initial: Form;
 }) {
   const { orgId } = useActiveOrg();
-  const { userId } = useSession();
+  const { userId, profile } = useSession();
   const authorOf = useAuthorLabel(orgId, userId);
   const save = useSaveTrip();
   const del = useDeleteTrip();
@@ -177,14 +184,20 @@ function TripForm({
       ) : null}
       <Card>
         <AppText variant="title">Dados principais</AppText>
-        <TextField
+        <CityField
+          label="De onde saiu?"
+          value={form.origin}
+          onChange={(t) => set('origin', t)}
+          placeholder="Ex.: Bauru - SP"
+          optional
+          hint={isNew && !copied && !profile?.home_city ? 'Dica: salve sua cidade base no Perfil para não digitar sempre.' : undefined}
+        />
+        <CityField
           label="Para onde foi?"
           value={form.destination}
-          onChangeText={(t) => set('destination', t)}
+          onChange={(t) => set('destination', t)}
           placeholder="Ex.: Presidente Prudente - SP"
-         
           optional
-          autoCapitalize="words"
         />
         <MoneyField
           label="Valor do frete"
@@ -192,25 +205,14 @@ function TripForm({
           onChange={(v) => set('freight_cents', v)}
           error={errors.freight_cents}
           hint="Quanto o cliente pagou pela viagem"
-         
         />
         <DateField label="Data da viagem" value={form.trip_date} onChange={(v) => set('trip_date', v)} error={errors.trip_date} />
-        <TextField
-          label="De onde saiu?"
-          value={form.origin}
-          onChangeText={(t) => set('origin', t)}
-          placeholder="Ex.: Bauru - SP"
-         
-          optional
-          autoCapitalize="words"
-        />
         <TextField
           label="Nome da viagem"
           value={form.title}
           onChangeText={(t) => set('title', t)}
           placeholder="Ex.: Carga de soja – cliente João"
           autoGrow
-         
           optional
         />
       </Card>

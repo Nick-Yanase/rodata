@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
-import { AppText, Button, Card, Chip, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
+import { AppText, Button, Card, Chip, CityField, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
 import { limitForYear, MEI_ANNUAL_LIMIT } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
 import { useSession, type MyOrganization } from '@/features/auth/session';
@@ -20,7 +20,7 @@ import {
   useRenameOrganization,
   useRevokeInvite,
   useSaveOrgSettings,
-  useUpdateName,
+  useUpdateProfile,
 } from '@/features/settings/api';
 import type { OrganizationSettingsRow } from '@/lib/database.types';
 import { friendlyError } from '@/lib/supabase';
@@ -61,30 +61,44 @@ export default function Profile() {
 
 function PersonalCard() {
   const { profile } = useSession();
-  // remonta quando o nome salvo muda, para o campo começar com o valor atual
-  return <PersonalForm key={profile?.name ?? ''} savedName={profile?.name ?? ''} />;
+  // remonta quando o perfil salvo muda, para os campos começarem com os valores atuais
+  return (
+    <PersonalForm
+      key={`${profile?.name ?? ''}|${profile?.home_city ?? ''}`}
+      savedName={profile?.name ?? ''}
+      savedCity={profile?.home_city ?? ''}
+    />
+  );
 }
 
-function PersonalForm({ savedName }: { savedName: string }) {
+function PersonalForm({ savedName, savedCity }: { savedName: string; savedCity: string }) {
   const { userId } = useSession();
   const [name, setName] = useState(savedName);
-  const update = useUpdateName();
+  const [city, setCity] = useState(savedCity);
+  const update = useUpdateProfile();
   const toast = useToast();
-  const changed = name.trim() && name.trim() !== savedName;
+  const changed = (name.trim() && name.trim() !== savedName) || city.trim() !== savedCity;
   return (
     <Card>
       <AppText variant="title">Seus dados</AppText>
       <TextField label="Seu nome" value={name} onChangeText={setName} autoComplete="name" />
+      <CityField
+        label="Sua cidade base"
+        value={city}
+        onChange={setCity}
+        optional
+        hint="De onde você costuma sair. Já vem preenchida em toda viagem nova."
+      />
       {changed ? (
         <Button
-          title="Salvar nome"
+          title="Salvar"
           size="md"
           loading={update.isPending}
           onPress={() =>
             update.mutate(
-              { id: userId!, name: name.trim() },
+              { id: userId!, name: name.trim() || savedName, home_city: city.trim() },
               {
-                onSuccess: () => toast({ message: 'Nome atualizado!' }),
+                onSuccess: () => toast({ message: 'Dados salvos!' }),
                 onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
               },
             )
