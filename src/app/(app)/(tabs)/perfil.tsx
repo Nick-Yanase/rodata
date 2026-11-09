@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
-import { AppText, Button, Card, Chip, CityField, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
+import { OrgCarousel } from '@/components/OrgCarousel';
+import { AppText, Button, Card, CityField, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
 import { limitForYear, MEI_ANNUAL_LIMIT } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
 import { useSession, type MyOrganization } from '@/features/auth/session';
@@ -32,6 +33,7 @@ export default function Profile() {
     <Screen>
       <AppText variant="heading">Perfil</AppText>
       <PersonalCard />
+      <OtherOrganizationsCard />
       {activeOrg ? (
         <>
           <OrganizationCard key={`org-${activeOrg.id}`} org={activeOrg} />
@@ -39,7 +41,6 @@ export default function Profile() {
           <BusinessCard orgId={activeOrg.id} />
         </>
       ) : null}
-      <OtherOrganizationsCard />
       <Card>
         <AppText variant="small" color={colors.textMuted}>
           Conectado como {session?.user.email}
@@ -336,34 +337,21 @@ function BusinessForm({ orgId, saved }: { orgId: string; saved: OrganizationSett
 // ---------------------------------------------------------------------------
 
 function OtherOrganizationsCard() {
-  const { organizations, activeOrg, setActiveOrgId } = useSession();
+  const { organizations } = useSession();
   const [joining, setJoining] = useState(false);
   return (
     <Card>
-      <AppText variant="title">Outras organizações</AppText>
-      {organizations.length > 1 ? (
-        <>
-          <AppText variant="small" color={colors.textMuted}>
-            Escolha qual organização ver:
-          </AppText>
-          <View style={styles.chips}>
-            {organizations.map((o) => (
-              <Chip key={o.id} label={o.name} selected={o.id === activeOrg?.id} onPress={() => setActiveOrgId(o.id)} />
-            ))}
-          </View>
-        </>
-      ) : (
-        <AppText variant="small" color={colors.textMuted}>
-          Cuida de mais de um negócio? Você pode participar de várias organizações.
-        </AppText>
-      )}
+      <AppText variant="title">Suas organizações</AppText>
+      <AppText variant="small" color={colors.textMuted}>
+        {organizations.length > 1
+          ? 'Deslize para trocar de organização.'
+          : 'Cuida de mais de um negócio? Você pode participar de várias organizações.'}
+      </AppText>
+      <OrgCarousel showAddCard />
       {joining ? (
         <AcceptInvite onJoined={() => setJoining(false)} />
       ) : (
-        <View style={{ gap: 10 }}>
-          <Button title="Entrar com código de convite" variant="secondary" size="md" icon="enter-outline" onPress={() => setJoining(true)} />
-          <Button title="Criar nova organização" variant="ghost" size="md" icon="add" onPress={() => router.push({ pathname: '/comecar', params: { nova: '1' } })} />
-        </View>
+        <Button title="Entrar com código de convite" variant="secondary" size="md" icon="enter-outline" onPress={() => setJoining(true)} />
       )}
     </Card>
   );

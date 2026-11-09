@@ -10,7 +10,7 @@ import { Fab, FAB_CLEARANCE } from '@/components/Fab';
 import { Logo } from '@/components/Logo';
 import { MeiCard } from '@/components/MeiCard';
 import { MonthPicker } from '@/components/MonthPicker';
-import { OrgSwitcher } from '@/components/OrgSwitcher';
+import { OrgCarousel } from '@/components/OrgCarousel';
 import { RevenueCard } from '@/components/RevenueCard';
 import { SyncStatus } from '@/components/SyncStatus';
 import { CHART_VIEWS, TimelineChart, type ChartView } from '@/components/TimelineChart';
@@ -45,7 +45,7 @@ const GRAINS: { id: Grain; label: string }[] = [
 
 
 export default function Dashboard() {
-  const { activeOrg, profile } = useSession();
+  const { activeOrg, profile, organizations } = useSession();
   const orgId = activeOrg?.id ?? null;
   // período: um atalho (este mês, este ano…) ou um mês escolhido
   const [period, setPeriod] = useState<{ preset: PeriodPreset } | { month: ISODate }>({ preset: 'this_month' });
@@ -129,7 +129,7 @@ export default function Dashboard() {
       overlay={<Fab label="Nova viagem" onPress={() => router.push('/viagem/nova')} />}>
       <Header initial={firstName[0]} />
       <SyncStatus />
-      <OrgSwitcher />
+      {organizations.length > 1 ? <OrgCarousel /> : null}
 
       {/* Resumo em linguagem simples (RF-50) */}
       <View style={styles.hello}>
