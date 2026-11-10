@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
-import { View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { View, type LayoutChangeEvent } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import { LineChart } from 'react-native-gifted-charts';
 
 import { fromISODate, type Grain } from '@/domain/dates';
@@ -107,12 +108,35 @@ export function TimelineChart({
     .map((p, i) => ({ i, text: shortLabel(p.bucket, grain) }))
     .filter(({ i }) => i % every === 0);
 
-  function pick(e: GestureResponderEvent | { nativeEvent: { offsetX?: number; locationX?: number } }) {
-    const x = e.nativeEvent.locationX ?? (e.nativeEvent as { offsetX?: number }).offsetX ?? 0;
+  /** x (relativo à área do gráfico) → índice do ponto mais próximo */
+  function pickAt(x: number) {
     if (n === 0) return;
     const i = Math.round(x / (spacing || 1));
     setActive(Math.min(n - 1, Math.max(0, i)));
   }
+
+  // Arrastar o dedo no gráfico mostra os valores. É um gesto do gesture-handler, o mesmo
+  // sistema da troca de aba: como ele ativa já nos primeiros pixels na horizontal, a troca
+  // de aba (que só ativa após 30 px) não começa enquanto o dedo está no gráfico.
+  // Movimento vertical cancela o gesto e a página rola normalmente.
+  const scrub = usePanGesture({
+    // web: o navegador continua rolando a página na vertical sobre o gráfico.
+    // @ts-expect-error a v3 do gesture-handler lê touchAction da config, mas não o expõe nos tipos
+    touchAction: 'pan-y',
+    runOnJS: true,
+    activeOffsetX: [-4, 4],
+    failOffsetY: [-12, 12],
+    onBegin: (e) => pickAt(e.x),
+    onActivate: (e) => {
+      swipeLock.on();
+      pickAt(e.x);
+    },
+    onUpdate: (e) => pickAt(e.x),
+    onFinalize: () => {
+      swipeLock.off();
+      setActive(null);
+    },
+  });
 
   const total1 = points.reduce((a, p) => a + s1.value(p), 0);
   const total2 = points.reduce((a, p) => a + s2.value(p), 0);
@@ -171,49 +195,35 @@ export function TimelineChart({
             animationDuration={500}
           />
           {/* Camada que captura mouse/dedo sobre a área do gráfico */}
-          <View
-            style={[styles.touch, { left: Y_AXIS_WIDTH, width: chartWidth, height: plotHeight }]}
-            onStartShouldSetResponder={() => true}
-            onResponderGrant={(e) => {
-              // arrastar no gráfico mostra valores, não troca de aba
-              swipeLock.on();
-              pick(e);
-            }}
-            onResponderMove={pick}
-            onResponderRelease={() => {
-              swipeLock.off();
-              setActive(null);
-            }}
-            // deixa a tela rolar se o dedo se mover na vertical
-            onResponderTerminationRequest={() => true}
-            onResponderTerminate={() => {
-              swipeLock.off();
-              setActive(null);
-            }}
-            onPointerMove={(e) => (e.nativeEvent.pointerType === 'mouse' ? pick(e) : undefined)}
-            onPointerLeave={() => setActive(null)}>
-            {activePoint ? (
-              <>
-                <View style={[styles.cursor, { left: active! * spacing }]} pointerEvents="none" />
-                <View style={[styles.tooltip, { left: tooltipLeft }]} pointerEvents="none">
-                  <AppText variant="caption" weight="700">
-                    {longLabel(activePoint.bucket, grain)}
-                  </AppText>
-                  {[s1, s2].map((s) => (
-                    <View key={s.label} style={styles.tooltipRow}>
-                      <View style={[styles.dotSmall, { backgroundColor: s.color }]} />
-                      <AppText variant="caption" style={{ flex: 1 }}>
-                        {s.label}
-                      </AppText>
-                      <AppText variant="caption" weight="700" color={s.value(activePoint) < 0 ? colors.negative : colors.text}>
-                        {formatBRL(s.value(activePoint))}
-                      </AppText>
-                    </View>
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </View>
+          <GestureDetector gesture={scrub}>
+            <View
+              style={[styles.touch, { left: Y_AXIS_WIDTH, width: chartWidth, height: plotHeight }]}
+              // no computador, basta passar o mouse
+              onPointerMove={(e) => (e.nativeEvent.pointerType === 'mouse' ? pickAt(e.nativeEvent.offsetX) : undefined)}
+              onPointerLeave={() => setActive(null)}>
+              {activePoint ? (
+                <>
+                  <View style={[styles.cursor, { left: active! * spacing }]} pointerEvents="none" />
+                  <View style={[styles.tooltip, { left: tooltipLeft }]} pointerEvents="none">
+                    <AppText variant="caption" weight="700">
+                      {longLabel(activePoint.bucket, grain)}
+                    </AppText>
+                    {[s1, s2].map((s) => (
+                      <View key={s.label} style={styles.tooltipRow}>
+                        <View style={[styles.dotSmall, { backgroundColor: s.color }]} />
+                        <AppText variant="caption" style={{ flex: 1 }}>
+                          {s.label}
+                        </AppText>
+                        <AppText variant="caption" weight="700" color={s.value(activePoint) < 0 ? colors.negative : colors.text}>
+                          {formatBRL(s.value(activePoint))}
+                        </AppText>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </GestureDetector>
         </View>
       ) : null}
       {width > 0 && n > 0 ? (
