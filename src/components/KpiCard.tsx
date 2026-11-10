@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { formatBRL, type Cents } from '@/domain/money';
 
+import { RollingNumber } from './RollingNumber';
 import { AppText, Card } from './ui';
 import { VariationBadge } from './VariationBadge';
 import { useTheme } from '@/theme/theme';
@@ -33,9 +34,7 @@ export function KpiCard({ title, subtitle, icon, value, variation, higherIsBette
           ) : null}
         </View>
       </View>
-      <AppText variant="money" color={value < 0 ? colors.negative : colors.text} style={styles.money}>
-        {formatBRL(value)}
-      </AppText>
+      <RollingNumber value={formatBRL(value)} color={value < 0 ? colors.negative : colors.text} fontSize={22} lineHeight={28} />
       {showVariation ? <VariationBadge value={variation} higherIsBetter={higherIsBetter} /> : null}
     </Card>
   );
@@ -46,5 +45,4 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   titles: { flex: 1 },
   // cabe "R$ 999.999,99" em meia tela de celular sem cortar
-  money: { fontSize: 22, lineHeight: 28 },
 });

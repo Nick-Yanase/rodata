@@ -5,6 +5,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { formatBRL, type Cents } from '@/domain/money';
 
 import { KpiCard } from './KpiCard';
+import { RollingNumber } from './RollingNumber';
 import { AppText, Card } from './ui';
 import { VariationBadge } from './VariationBadge';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -47,9 +48,7 @@ export function RevenueCard({ rows, showVariation }: { rows: Row[]; showVariatio
               </AppText>
             </View>
           </View>
-          <AppText variant="money" color={r.value < 0 ? colors.negative : colors.text}>
-            {formatBRL(r.value)}
-          </AppText>
+          <RollingNumber value={formatBRL(r.value)} color={r.value < 0 ? colors.negative : colors.text} />
           {showVariation ? <VariationBadge value={r.variation} /> : null}
         </View>
       ))}
