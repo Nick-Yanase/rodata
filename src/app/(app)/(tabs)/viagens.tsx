@@ -48,7 +48,11 @@ export default function TripsList() {
           <View style={styles.header}>
             <AppText variant="heading">Viagens</AppText>
             <SyncStatus />
-            <OrgSwitcher />
+            <View style={styles.chips}>
+              {SORTS.map((s) => (
+                <Chip key={s.id} label={s.label} selected={sort === s.id} onPress={() => setSort(s.id)} />
+              ))}
+            </View>
             <View style={styles.search}>
               <Ionicons name="search" size={22} color={colors.textMuted} />
               <TextInput
@@ -61,11 +65,6 @@ export default function TripsList() {
                 returnKeyType="search"
                 maxFontSizeMultiplier={1.6}
               />
-            </View>
-            <View style={styles.chips}>
-              {SORTS.map((s) => (
-                <Chip key={s.id} label={s.label} selected={sort === s.id} onPress={() => setSort(s.id)} />
-              ))}
             </View>
           </View>
         }

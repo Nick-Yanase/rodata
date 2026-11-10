@@ -38,7 +38,6 @@ export default function NotesList() {
         ListHeaderComponent={
           <View style={styles.header}>
             <AppText variant="heading">Anotações</AppText>
-            <OrgSwitcher />
             <View style={styles.search}>
               <Ionicons name="search" size={22} color={colors.textMuted} />
               <TextInput

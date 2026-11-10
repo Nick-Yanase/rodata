@@ -308,7 +308,7 @@ const useStyles = makeStyles((colors) => ({
   },
   hello: { gap: 4 },
   // nome + • + organização; quebra linha se o nome da organização for longo
-  helloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  helloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 2 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHead: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6 },
