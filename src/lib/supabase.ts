@@ -46,8 +46,10 @@ export function friendlyError(error: unknown): string {
     [/invalid login credentials/i, 'E-mail ou senha incorretos.'],
     [/email not confirmed/i, 'Confirme seu e-mail pelo link que enviamos antes de entrar.'],
     [/user already registered/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
-    [/password should be at least/i, 'A senha precisa ter pelo menos 6 caracteres.'],
+    [/password should be at least/i, 'A senha precisa ter pelo menos 8 caracteres.'],
+    [/muitas tentativas/i, 'Muitas tentativas de código. Espere uma hora e tente de novo.'],
     [/rate limit|too many/i, 'Muitas tentativas. Espere um minuto e tente de novo.'],
+    [/password.*(weak|pwned|leaked)|senha fraca/i, 'Essa senha é fácil de adivinhar. Escolha outra.'],
     [/network|fetch failed|failed to fetch/i, 'Sem conexão com a internet. Tente de novo.'],
     [/código inválido|expirado|já usado/i, 'Código inválido, expirado ou já usado. Peça um novo código.'],
   ];

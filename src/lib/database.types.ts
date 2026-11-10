@@ -118,7 +118,7 @@ export type Database = {
       };
       create_organization: { Args: { p_name: string }; Returns: string };
       create_invite: { Args: { p_org: string }; Returns: OrganizationInviteRow };
-      accept_invite: { Args: { p_code: string }; Returns: string };
+      accept_invite: { Args: { p_code: string }; Returns: string | null };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

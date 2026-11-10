@@ -195,6 +195,8 @@ export function useAcceptInvite() {
     mutationFn: async (code: string) => {
       const { data, error } = await supabase.rpc('accept_invite', { p_code: code });
       if (error) throw error;
+      // código errado, expirado ou já usado: o banco devolve null (e conta a tentativa)
+      if (!data) throw new Error('Código inválido, expirado ou já usado');
       return data as string;
     },
     onSuccess: () => invalidateOrgs(qc),

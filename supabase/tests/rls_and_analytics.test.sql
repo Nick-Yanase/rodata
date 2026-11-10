@@ -114,11 +114,8 @@ end $$;
 -- B tenta usar o código já usado
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 do $$ begin
-  begin
-    perform public.accept_invite((select val from ctx where key = 'code'));
-    assert false, 'convite usado não pode ser aceito de novo';
-  exception when no_data_found then null;
-  end;
+  assert public.accept_invite((select val from ctx where key = 'code')) is null,
+    'convite usado não pode ser aceito de novo';
 end $$;
 
 -- A vê o que C fez e a remove

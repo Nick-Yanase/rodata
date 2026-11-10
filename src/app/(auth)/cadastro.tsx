@@ -21,7 +21,7 @@ export default function SignUp() {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = 'Digite seu nome.';
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) e.email = 'Digite um e-mail válido.';
-    if (password.length < 6) e.password = 'A senha precisa ter pelo menos 6 caracteres.';
+    if (password.length < 8) e.password = 'A senha precisa ter pelo menos 8 caracteres.';
     if (confirm !== password) e.confirm = 'As senhas não são iguais.';
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -88,7 +88,7 @@ export default function SignUp() {
           secureTextEntry
           autoComplete="new-password"
           error={errors.password}
-          hint="Pelo menos 6 caracteres"
+          hint="Pelo menos 8 caracteres"
         />
         <TextField
           label="Confirmar senha"

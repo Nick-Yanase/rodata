@@ -14,7 +14,7 @@ export default function NewPassword() {
   const toast = useToast();
 
   async function submit() {
-    if (password.length < 6) return setError('A senha precisa ter pelo menos 6 caracteres.');
+    if (password.length < 8) return setError('A senha precisa ter pelo menos 8 caracteres.');
     setLoading(true);
     const { error: e } = await supabase.auth.updateUser({ password });
     setLoading(false);
@@ -33,7 +33,7 @@ export default function NewPassword() {
           onChangeText={setPassword}
           secureTextEntry
           autoComplete="new-password"
-          hint="Pelo menos 6 caracteres"
+          hint="Pelo menos 8 caracteres"
           error={error}
           onSubmitEditing={submit}
         />

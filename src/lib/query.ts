@@ -28,9 +28,12 @@ export const queryClient = new QueryClient({
   },
 });
 
+/** chave do cache offline no aparelho (apagada ao sair da conta) */
+export const PERSIST_KEY = 'rodata-cache-v1';
+
 export const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: 'rodata-cache-v1',
+  key: PERSIST_KEY,
   throttleTime: 1000,
 });
 

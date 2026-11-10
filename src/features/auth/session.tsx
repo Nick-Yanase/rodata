@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import type { MemberRole, ProfileRow } from '@/lib/database.types';
-import { queryClient } from '@/lib/query';
+import { PERSIST_KEY, queryClient } from '@/lib/query';
 import { supabase } from '@/lib/supabase';
 
 export type MyOrganization = { id: string; name: string; role: MemberRole };
@@ -101,8 +101,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     signOut: async () => {
       await supabase.auth.signOut();
+      // apaga do aparelho os dados guardados para uso offline (celular compartilhado)
       queryClient.clear();
-      await AsyncStorage.removeItem(ACTIVE_ORG_KEY).catch(() => {});
+      await AsyncStorage.multiRemove([ACTIVE_ORG_KEY, PERSIST_KEY]).catch(() => {});
     },
   };
 
