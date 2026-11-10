@@ -33,6 +33,9 @@ export default function TabsLayout() {
       )}
       screenOptions={{
         headerShown: false,
+        // troca de aba desliza a tela para o lado da aba de destino (toque na barra ou gesto)
+        animation: 'shift',
+        transitionSpec: { animation: 'timing', config: { duration: 220 } },
         tabBarActiveTintColor: colors.primaryStrong,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
