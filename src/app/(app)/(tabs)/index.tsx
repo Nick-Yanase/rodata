@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { CostBreakdown } from '@/components/CostBreakdown';
 import { ForecastCard } from '@/components/ForecastCard';
 import { Fab, FAB_CLEARANCE } from '@/components/Fab';
@@ -127,7 +128,7 @@ export default function Dashboard() {
       onRefresh={onRefresh}
       bottomSpace={FAB_CLEARANCE}
       overlay={<Fab label="Nova viagem" onPress={() => router.push('/viagem/nova')} />}>
-      <Header initial={firstName[0]} />
+      <Header name={profile?.name} avatarUrl={profile?.avatar_url} />
       <SyncStatus />
       {organizations.length > 1 ? <OrgCarousel /> : null}
 
@@ -267,18 +268,12 @@ export default function Dashboard() {
   );
 }
 
-function Header({ initial }: { initial?: string }) {
+function Header({ name, avatarUrl }: { name?: string; avatarUrl?: string | null }) {
   return (
     <View style={styles.header}>
       <Logo />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Abrir perfil"
-        onPress={() => router.push('/perfil')}
-        style={styles.avatar}>
-        <AppText variant="title" color="#FFFFFF">
-          {(initial ?? '?').toUpperCase()}
-        </AppText>
+      <Pressable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={() => router.push('/perfil')}>
+        <Avatar name={name} url={avatarUrl} size={52} />
       </Pressable>
     </View>
   );
@@ -296,14 +291,6 @@ function diffSentence(net: number, prevNet: number) {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primaryStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   hello: { gap: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

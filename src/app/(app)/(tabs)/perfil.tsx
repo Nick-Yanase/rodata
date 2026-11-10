@@ -4,9 +4,10 @@ import { ptBR } from 'date-fns/locale';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
+import { Avatar } from '@/components/Avatar';
 import { OrgCarousel } from '@/components/OrgCarousel';
 import { AppText, Button, Card, CityField, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
 import { limitForYear, MEI_ANNUAL_LIMIT } from '@/domain/mei';
@@ -23,6 +24,7 @@ import {
   useSaveOrgSettings,
   useUpdateProfile,
 } from '@/features/settings/api';
+import { pickSquareImage, useRemoveAvatar, useUploadAvatar } from '@/features/settings/avatar';
 import type { OrganizationSettingsRow } from '@/lib/database.types';
 import { friendlyError } from '@/lib/supabase';
 import { colors, radius } from '@/theme/tokens';
@@ -82,6 +84,7 @@ function PersonalForm({ savedName, savedCity }: { savedName: string; savedCity: 
   return (
     <Card>
       <AppText variant="title">Seus dados</AppText>
+      <PhotoPicker />
       <TextField label="Seu nome" value={name} onChangeText={setName} autoComplete="name" />
       <CityField
         label="Sua cidade base"
@@ -107,6 +110,54 @@ function PersonalForm({ savedName, savedCity }: { savedName: string; savedCity: 
         />
       ) : null}
     </Card>
+  );
+}
+
+/** Foto de perfil: escolher da galeria (recorte quadrado) ou remover. */
+function PhotoPicker() {
+  const { userId, profile } = useSession();
+  const upload = useUploadAvatar();
+  const remove = useRemoveAvatar();
+  const toast = useToast();
+  const url = profile?.avatar_url ?? null;
+
+  async function choose() {
+    const uri = await pickSquareImage();
+    if (!uri || !userId) return;
+    upload.mutate(
+      { userId, uri, previousUrl: url },
+      {
+        onSuccess: () => toast({ message: 'Foto atualizada!' }),
+        onError: (e) => toast({ tone: 'error', message: friendlyError(e) }),
+      },
+    );
+  }
+
+  return (
+    <View style={styles.photoRow}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Trocar foto" onPress={choose}>
+        <Avatar name={profile?.name} url={url} size={84} />
+      </Pressable>
+      <View style={{ flex: 1, gap: 8 }}>
+        <Button
+          title={url ? 'Trocar foto' : 'Adicionar foto'}
+          variant="secondary"
+          size="md"
+          icon="image-outline"
+          loading={upload.isPending}
+          onPress={choose}
+        />
+        {url ? (
+          <Button
+            title="Remover foto"
+            variant="ghost"
+            size="md"
+            loading={remove.isPending}
+            onPress={() => userId && remove.mutate({ userId, previousUrl: url })}
+          />
+        ) : null}
+      </View>
+    </View>
   );
 }
 
@@ -193,11 +244,7 @@ function MembersCard({ org }: { org: MyOrganization }) {
 
       {(members.data ?? []).map((m) => (
         <View key={m.userId} style={styles.memberRow}>
-          <View style={styles.avatar}>
-            <AppText variant="label" color="#FFFFFF">
-              {m.name.charAt(0).toUpperCase()}
-            </AppText>
-          </View>
+          <Avatar name={m.name} url={m.avatarUrl} size={40} />
           <View style={{ flex: 1 }}>
             <AppText variant="label">
               {m.name}
@@ -360,14 +407,7 @@ function OtherOrganizationsCard() {
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primaryStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   codeBox: { gap: 12, padding: 16, borderRadius: radius.md, backgroundColor: colors.background },
   code: { fontSize: 36, fontWeight: '800', letterSpacing: 6, textAlign: 'center', color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

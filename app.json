@@ -40,6 +40,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 160
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Rodata usa suas fotos para você escolher a foto do seu perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

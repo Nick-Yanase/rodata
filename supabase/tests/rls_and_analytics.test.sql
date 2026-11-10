@@ -10,7 +10,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000000c', 'c@x.com', '{"name":"Analista C"}');
 
 do $$ begin
-  assert (select count(*) from public.profiles) = 3, 'trigger deve criar 3 perfis';
+  assert (select count(*) from public.profiles where id::text like '00000000-0000-0000-0000-00000000000_') = 3, 'trigger deve criar 3 perfis';
 end $$;
 
 create temp table ctx (key text primary key, val text);

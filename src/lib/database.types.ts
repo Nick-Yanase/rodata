@@ -40,6 +40,8 @@ export type ProfileRow = Timestamps & {
   name: string;
   /** cidade base, usada como origem padrão das viagens ("Bauru - SP") */
   home_city: string;
+  /** URL pública da foto (bucket "avatars"), ou null */
+  avatar_url: string | null;
 };
 
 export type OrganizationRow = Timestamps & {

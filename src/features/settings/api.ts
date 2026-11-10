@@ -84,7 +84,7 @@ export function useRenameOrganization() {
   });
 }
 
-export type Member = { userId: string; name: string; role: MemberRole };
+export type Member = { userId: string; name: string; role: MemberRole; avatarUrl: string | null };
 
 /** Membros da organização — também usados para mostrar quem lançou cada viagem. */
 export function useMembers(orgId: string | null) {
@@ -95,13 +95,22 @@ export function useMembers(orgId: string | null) {
     queryFn: async (): Promise<Member[]> => {
       const { data, error } = await supabase
         .from('organization_members')
-        .select('user_id, role, profile:profiles(name)')
+        .select('user_id, role, profile:profiles(name, avatar_url)')
         .eq('org_id', orgId!)
         .order('joined_at', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((m) => {
-        const row = m as unknown as { user_id: string; role: MemberRole; profile: { name: string } | null };
-        return { userId: row.user_id, role: row.role, name: row.profile?.name || 'Sem nome' };
+        const row = m as unknown as {
+          user_id: string;
+          role: MemberRole;
+          profile: { name: string; avatar_url: string | null } | null;
+        };
+        return {
+          userId: row.user_id,
+          role: row.role,
+          name: row.profile?.name || 'Sem nome',
+          avatarUrl: row.profile?.avatar_url ?? null,
+        };
       });
     },
   });
