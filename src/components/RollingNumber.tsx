@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, View, type TextStyle } from 'react-native';
 import Animated, {
@@ -24,11 +25,14 @@ type Props = {
 
 /**
  * Número que "rola" como um odômetro: cada dígito sobe até o valor certo, da
- * esquerda para a direita, ao aparecer na tela e sempre que o valor muda.
+ * esquerda para a direita, sempre que a tela entra em foco e quando o valor muda.
+ * (As abas ficam montadas em segundo plano: sem o foco, a animação só rodaria
+ * na primeira vez, muitas vezes ainda atrás da tela de abertura.)
  * Símbolos (R$, ponto, vírgula, sinal) ficam parados.
  */
 export function RollingNumber({ value, color, fontSize = 26, lineHeight = 32, weight = '700' }: Props) {
   const reduced = useReducedMotion();
+  const focused = useIsFocused();
   const chars = value.split('');
   const textStyle: TextStyle = { fontSize, lineHeight, fontWeight: weight, fontVariant: ['tabular-nums'] };
 
@@ -46,7 +50,15 @@ export function RollingNumber({ value, color, fontSize = 26, lineHeight = 32, we
         // chave contada da direita: centavos continuam na mesma coluna se o número crescer
         const key = `${chars.length - i}-${/\d/.test(c) ? 'd' : c}`;
         return /\d/.test(c) ? (
-          <Digit key={key} digit={Number(c)} order={i} lineHeight={lineHeight} color={color} textStyle={textStyle} />
+          <Digit
+            key={key}
+            digit={Number(c)}
+            order={i}
+            lineHeight={lineHeight}
+            color={color}
+            textStyle={textStyle}
+            focused={focused}
+          />
         ) : (
           <AppText key={key} color={color} style={textStyle}>
             {c}
@@ -63,7 +75,9 @@ function Digit({
   lineHeight,
   color,
   textStyle,
+  focused,
 }: {
+  focused: boolean;
   digit: number;
   order: number;
   lineHeight: number;
@@ -72,14 +86,22 @@ function Digit({
 }) {
   const offset = useSharedValue(0);
 
+  // ao ganhar foco: recomeça do 0 e rola até o dígito; se o valor muda com a tela
+  // aberta, rola do dígito atual até o novo
   useEffect(() => {
-    offset.value = withDelay(
-      order * 45,
-      withTiming(-digit * lineHeight, { duration: 700, easing: Easing.out(Easing.cubic) }),
+    if (!focused) return;
+    offset.set(0);
+    offset.set(
+      withDelay(120 + order * 45, withTiming(-digit * lineHeight, { duration: 800, easing: Easing.out(Easing.cubic) })),
     );
-  }, [digit, order, lineHeight, offset]);
+  }, [focused, lineHeight, offset, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const animated = useAnimatedStyle(() => ({ transform: [{ translateY: offset.value }] }));
+  useEffect(() => {
+    if (!focused) return;
+    offset.set(withTiming(-digit * lineHeight, { duration: 700, easing: Easing.out(Easing.cubic) }));
+  }, [digit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const animated = useAnimatedStyle(() => ({ transform: [{ translateY: offset.get() }] }));
 
   return (
     <View style={{ height: lineHeight, overflow: 'hidden' }} accessible={false}>

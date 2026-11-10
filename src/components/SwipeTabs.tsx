@@ -50,24 +50,24 @@ export function SwipeTabs({ routeName, onNavigate, children }: Props) {
     failOffsetY: [-15, 15],
     onUpdate: (e) => {
       if (reduced || swipeLock.isOn()) return;
-      tx.value = e.translationX * (hasNeighbor(e.translationX) ? FOLLOW : EDGE_FOLLOW);
+      tx.set(e.translationX * (hasNeighbor(e.translationX) ? FOLLOW : EDGE_FOLLOW));
     },
     onDeactivate: (e) => {
       const far = Math.abs(e.translationX) > MIN_DISTANCE || Math.abs(e.velocityX) > MIN_VELOCITY;
       if (!e.canceled && !swipeLock.isOn() && far && hasNeighbor(e.translationX)) {
         onNavigate(TAB_ORDER[e.translationX < 0 ? index + 1 : index - 1]);
         // a tela que sai volta ao lugar escondida; a que entra faz o "shift"
-        tx.value = 0;
+        tx.set(0);
         return;
       }
-      tx.value = withSpring(0, SPRING);
+      tx.set(withSpring(0, SPRING));
     },
     onFinalize: (e) => {
-      if (e.canceled) tx.value = withSpring(0, SPRING);
+      if (e.canceled) tx.set(withSpring(0, SPRING));
     },
   });
 
-  const follow = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+  const follow = useAnimatedStyle(() => ({ transform: [{ translateX: tx.get() }] }));
 
   return (
     <GestureDetector gesture={pan}>
