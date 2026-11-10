@@ -1,10 +1,11 @@
 import { Redirect, Stack } from 'expo-router';
 
 import { useSession } from '@/features/auth/session';
+import { useTheme } from '@/theme/theme';
 
-import { colors } from '@/theme/tokens';
 
 export default function AppLayout() {
+  const { colors } = useTheme();
   const { session } = useSession();
   if (!session) return <Redirect href="/entrar" />;
   return (

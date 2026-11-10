@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { addMonths, getMonth, startOfMonth } from 'date-fns';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, Switch, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
 import { CostBreakdown } from '@/components/CostBreakdown';
@@ -11,10 +11,10 @@ import { Fab, FAB_CLEARANCE } from '@/components/Fab';
 import { Logo } from '@/components/Logo';
 import { MeiCard } from '@/components/MeiCard';
 import { MonthPicker } from '@/components/MonthPicker';
-import { OrgCarousel } from '@/components/OrgCarousel';
 import { RevenueCard } from '@/components/RevenueCard';
 import { SyncStatus } from '@/components/SyncStatus';
-import { CHART_VIEWS, TimelineChart, type ChartView } from '@/components/TimelineChart';
+import { MetricSelect } from '@/components/MetricSelect';
+import { METRIC_ORDER, TimelineChart, type ChartMetric } from '@/components/TimelineChart';
 import { AppText, Card, Chip, Screen, Segmented } from '@/components/ui';
 import {
   defaultGrain,
@@ -36,7 +36,7 @@ import { formatBRL } from '@/domain/money';
 import { useSession } from '@/features/auth/session';
 import { useMonthlyHistory, useSummary, useTimeline } from '@/features/dashboard/api';
 import { useOrgSettings } from '@/features/settings/api';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 const GRAINS: { id: Grain; label: string }[] = [
   { id: 'day', label: 'Dia' },
@@ -46,7 +46,9 @@ const GRAINS: { id: Grain; label: string }[] = [
 
 
 export default function Dashboard() {
-  const { activeOrg, profile, organizations } = useSession();
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const { activeOrg, profile } = useSession();
   const orgId = activeOrg?.id ?? null;
   // período: um atalho (este mês, este ano…) ou um mês escolhido
   const [period, setPeriod] = useState<{ preset: PeriodPreset } | { month: ISODate }>({ preset: 'this_month' });
@@ -56,7 +58,8 @@ export default function Dashboard() {
     [period],
   );
   const [grainChoice, setGrainChoice] = useState<Grain | null>(null);
-  const [chartView, setChartView] = useState<ChartView>('revenue_cost');
+  // séries do gráfico: padrão receita total × custos; cada lado escolhe no título
+  const [metrics, setMetrics] = useState<[ChartMetric, ChartMetric]>(['revenue', 'cost']);
   const grain = grainChoice && isGrainAllowed(current, grainChoice) ? grainChoice : defaultGrain(current);
 
   const summary = useSummary(orgId, current, previous);
@@ -130,7 +133,7 @@ export default function Dashboard() {
       overlay={<Fab label="Nova viagem" onPress={() => router.push('/viagem/nova')} />}>
       <Header name={profile?.name} avatarUrl={profile?.avatar_url} />
       <SyncStatus />
-      {organizations.length > 1 ? <OrgCarousel /> : null}
+      
 
       {/* Resumo em linguagem simples (RF-50) */}
       <View style={styles.hello}>
@@ -228,11 +231,26 @@ export default function Dashboard() {
 
       <Card>
         <View style={styles.cardHead}>
-          <Ionicons name="stats-chart-outline" size={22} color={colors.primary} />
+          <Ionicons name="stats-chart-outline" size={22} color={colors.primary} style={{ marginTop: 10 }} />
           <View style={{ flex: 1 }}>
-            <AppText variant="label">Linha do tempo</AppText>
+            {/* "Sua receita total ▾ vs Seus custos ▾": cada métrica é um seletor */}
+            <View style={styles.metricsRow}>
+              <MetricSelect
+                value={metrics[0]}
+                options={METRIC_ORDER.filter((m) => m !== metrics[1])}
+                onChange={(m) => setMetrics([m, metrics[1]])}
+              />
+              <AppText variant="label" color={colors.textMuted} weight="400">
+                vs
+              </AppText>
+              <MetricSelect
+                value={metrics[1]}
+                options={METRIC_ORDER.filter((m) => m !== metrics[0])}
+                onChange={(m) => setMetrics([metrics[0], m])}
+              />
+            </View>
             <AppText variant="caption" color={colors.textMuted}>
-              Valores no período selecionado
+              Evolução no período selecionado
             </AppText>
           </View>
         </View>
@@ -242,8 +260,7 @@ export default function Dashboard() {
           value={grain}
           onChange={setGrainChoice}
         />
-        <Segmented accessibilityLabel="Comparar" options={CHART_VIEWS} value={chartView} onChange={setChartView} />
-        {timeline.data ? <TimelineChart points={timeline.data} grain={grain} view={chartView} /> : null}
+        {timeline.data ? <TimelineChart points={timeline.data} grain={grain} metrics={metrics} /> : null}
       </Card>
 
       {meiStatus ? (
@@ -269,6 +286,7 @@ export default function Dashboard() {
 }
 
 function Header({ name, avatarUrl }: { name?: string; avatarUrl?: string | null }) {
+  const styles = useStyles();
   return (
     <View style={styles.header}>
       <Logo />
@@ -289,10 +307,18 @@ function diffSentence(net: number, prevNet: number) {
   return `, ${formatBRL(Math.abs(diff))} ${diff > 0 ? 'a mais' : 'a menos'} que no período anterior.`;
 }
 
-const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+const useStyles = makeStyles((colors) => ({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 12,
+  },
   hello: { gap: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHead: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-});
+  metricsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6 },
+}));

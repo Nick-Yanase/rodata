@@ -2,15 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { formatVariation } from '@/domain/metrics';
-import { colors } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { useTheme } from '@/theme/theme';
 
 /**
  * Variação com seta + sinal + cor (nunca só cor — RNF-03).
  * `higherIsBetter=false` para custos: subir custo é ruim (vermelho).
  */
 export function VariationBadge({ value, higherIsBetter = true }: { value: number | null; higherIsBetter?: boolean }) {
+  const { colors } = useTheme();
   if (value === null || value === 0) {
     return (
       <AppText variant="small" color={colors.textMuted}>

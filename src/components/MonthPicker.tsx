@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { addMonths, format, getMonth, getYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 
 import { formatMonthLong, fromISODate, toISODate, type ISODate } from '@/domain/dates';
-import { colors, radius, space, TOUCH } from '@/theme/tokens';
+import { radius, space, TOUCH } from '@/theme/tokens';
 
 import { AppText, Button } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Props = {
   /** mês selecionado (1º dia) ou null quando o período ativo é um atalho */
@@ -20,6 +21,8 @@ type Props = {
  * uma grade com os 12 meses do ano.
  */
 export function MonthPicker({ value, onChange }: Props) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const shown = value ?? toISODate(new Date(getYear(new Date()), getMonth(new Date()), 1));
   const step = (n: number) => onChange(toISODate(addMonths(fromISODate(shown), n)));
@@ -63,6 +66,8 @@ function MonthGrid(props: {
   onClose: () => void;
   onPick: (m: ISODate) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [year, setYear] = useState(getYear(fromISODate(props.initial)));
   return (
     <Modal visible={props.visible} transparent animationType="fade" onRequestClose={props.onClose}>
@@ -106,7 +111,7 @@ function capitalizeFirst(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -134,4 +139,4 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cellSelected: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong },
-});
+}));

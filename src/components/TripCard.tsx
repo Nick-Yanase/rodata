@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { formatDateBR } from '@/domain/dates';
 import { tripNet } from '@/domain/metrics';
 import { formatBRL } from '@/domain/money';
 import type { TripRow } from '@/lib/database.types';
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export function tripTitle(t: Pick<TripRow, 'title' | 'destination'>) {
   return t.title || (t.destination ? `Viagem para ${t.destination}` : 'Viagem');
@@ -15,6 +16,8 @@ export function tripTitle(t: Pick<TripRow, 'title' | 'destination'>) {
 
 /** Card da lista: frete, custo e receita faturada em destaque (RF-15). */
 export function TripCard({ trip, author, onPress }: { trip: TripRow; author?: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const net = tripNet(trip);
   const place = [trip.origin, trip.destination].filter(Boolean).join(' → ');
   return (
@@ -60,6 +63,8 @@ export function TripCard({ trip, author, onPress }: { trip: TripRow; author?: st
 }
 
 function Value({ label, value, tone }: { label: string; value: string; tone?: 'positive' | 'negative' }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const bg = tone === 'positive' ? colors.positiveSoft : tone === 'negative' ? colors.negativeSoft : colors.background;
   const fg = tone === 'positive' ? colors.positive : tone === 'negative' ? colors.negative : colors.text;
   return (
@@ -74,7 +79,7 @@ function Value({ label, value, tone }: { label: string; value: string; tone?: 'p
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -87,4 +92,4 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   values: { flexDirection: 'row', gap: space.sm },
   value: { flex: 1, borderRadius: radius.sm, paddingVertical: 6, paddingHorizontal: 8 },
-});
+}));

@@ -1,7 +1,7 @@
 import { onlineManager } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { tripTitle } from '@/components/TripCard';
 import { AppText, Button, Card, CityField, confirm, DateField, EmptyState, MoneyField, Screen, TextField, useToast } from '@/components/ui';
@@ -14,7 +14,7 @@ import { toRow, useDeleteTrip, useSaveTrip, useTrip } from '@/features/trips/api
 import type { TripRow } from '@/lib/database.types';
 import { goBack } from '@/lib/navigation';
 import { newId } from '@/lib/uuid';
-import { colors } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Form = {
   title: string;
@@ -57,6 +57,7 @@ function fromRow(t: TripRow, keepDate = true): Form {
 
 /** Criar (id = "nova"), ver/editar e repetir viagem (RF-10, RF-13, RF-16). */
 export default function TripScreen() {
+  const { colors } = useTheme();
   const { id, copiar } = useLocalSearchParams<{ id: string; copiar?: string }>();
   const isNew = id === 'nova';
   const existing = useTrip(isNew ? undefined : id);
@@ -99,6 +100,8 @@ function TripForm({
   existing?: TripRow;
   initial: Form;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { orgId } = useActiveOrg();
   const { userId, profile } = useSession();
   const authorOf = useAuthorLabel(orgId, userId);
@@ -279,6 +282,7 @@ function TripForm({
 }
 
 function Row({ label, value, strong, color }: { label: string; value: string; strong?: boolean; color?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       <AppText variant={strong ? 'label' : 'body'}>{label}</AppText>
@@ -289,8 +293,8 @@ function Row({ label, value, strong, color }: { label: string; value: string; st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   divider: { height: 1, backgroundColor: colors.border },
   actions: { gap: 12 },
-});
+}));

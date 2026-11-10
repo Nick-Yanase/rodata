@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { colors, radius, space, TOUCH } from '@/theme/tokens';
+import { radius, space, TOUCH } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
+import type { Palette } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 
@@ -20,12 +22,18 @@ export type ButtonProps = {
   accessibilityHint?: string;
 };
 
-const palette: Record<Variant, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.primaryStrong, fg: '#FFFFFF', border: colors.primaryStrong },
-  secondary: { bg: colors.surface, fg: colors.primaryStrong, border: colors.primaryStrong },
-  ghost: { bg: 'transparent', fg: colors.primaryStrong, border: 'transparent' },
-  danger: { bg: colors.surface, fg: colors.negative, border: colors.negative },
-};
+function palette(colors: Palette, variant: Variant): { bg: string; fg: string; border: string } {
+  switch (variant) {
+    case 'primary':
+      return { bg: colors.primaryStrong, fg: colors.onPrimary, border: colors.primaryStrong };
+    case 'secondary':
+      return { bg: colors.surface, fg: colors.primaryStrong, border: colors.primaryStrong };
+    case 'ghost':
+      return { bg: 'transparent', fg: colors.primaryStrong, border: 'transparent' };
+    case 'danger':
+      return { bg: colors.surface, fg: colors.negative, border: colors.negative };
+  }
+}
 
 export function Button({
   title,
@@ -38,7 +46,8 @@ export function Button({
   style,
   accessibilityHint,
 }: ButtonProps) {
-  const p = palette[variant];
+  const { colors } = useTheme();
+  const p = palette(colors, variant);
   const inactive = disabled || loading;
   return (
     <Pressable

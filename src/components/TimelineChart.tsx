@@ -1,37 +1,41 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
-import { StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 
 import { fromISODate, type Grain } from '@/domain/dates';
 import { formatBRL, formatBRLCompact } from '@/domain/money';
 import { swipeLock } from '@/lib/swipeLock';
 import type { TimelinePoint } from '@/features/dashboard/api';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
-/** Quais séries comparar no gráfico. */
-export type ChartView = 'revenue_cost' | 'revenue_net';
+/** Métricas que o gráfico sabe desenhar. */
+export type ChartMetric = 'revenue' | 'net' | 'cost';
 
-export const CHART_VIEWS: { id: ChartView; label: string }[] = [
-  { id: 'revenue_cost', label: 'Receita × Custos' },
-  { id: 'revenue_net', label: 'Total × Faturada' },
-];
-
-type Series = { label: string; color: string; value: (p: TimelinePoint) => number };
-
-const SERIES: Record<ChartView, [Series, Series]> = {
-  revenue_cost: [
-    { label: 'Receita total', color: colors.chartRevenue, value: (p) => p.revenue },
-    { label: 'Custos', color: colors.chartCost, value: (p) => p.cost },
-  ],
-  revenue_net: [
-    { label: 'Receita total', color: colors.chartRevenue, value: (p) => p.revenue },
-    { label: 'Receita faturada', color: colors.chartNet, value: (p) => p.revenue - p.cost },
-  ],
+type MetricDef = {
+  /** "receita total" — usado em "Sua receita total" */
+  label: string;
+  /** artigo para o título: "Sua" receita / "Seus" custos */
+  article: 'Sua' | 'Seus';
+  colorKey: 'chartRevenue' | 'chartNet' | 'chartCost';
+  value: (p: TimelinePoint) => number;
 };
+
+export const METRICS: Record<ChartMetric, MetricDef> = {
+  revenue: { label: 'receita total', article: 'Sua', colorKey: 'chartRevenue', value: (p) => p.revenue },
+  net: { label: 'receita faturada', article: 'Sua', colorKey: 'chartNet', value: (p) => p.revenue - p.cost },
+  cost: { label: 'custos', article: 'Seus', colorKey: 'chartCost', value: (p) => p.cost },
+};
+
+export const METRIC_ORDER: ChartMetric[] = ['revenue', 'net', 'cost'];
+
+function capitalizeLabel(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 const HEIGHT = 200;
 const SECTIONS = 4;
@@ -65,12 +69,26 @@ function niceStep(maxReais: number) {
 }
 
 /** Linha do tempo (RF-43) com tooltip ao passar o mouse ou arrastar o dedo. */
-export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points: TimelinePoint[]; grain: Grain; view?: ChartView }) {
+export function TimelineChart({
+  points,
+  grain,
+  metrics,
+}: {
+  points: TimelinePoint[];
+  grain: Grain;
+  /** as duas séries comparadas, ex.: ['revenue', 'cost'] */
+  metrics: [ChartMetric, ChartMetric];
+}) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [width, setWidth] = useState(0);
   const [active, setActive] = useState<number | null>(null);
   const onLayout = (e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width));
 
-  const [s1, s2] = SERIES[view];
+  const [s1, s2] = metrics.map((m) => {
+    const d = METRICS[m];
+    return { label: capitalizeLabel(d.label), color: colors[d.colorKey], value: d.value };
+  });
   const n = points.length;
   const chartWidth = Math.max(0, width - Y_AXIS_WIDTH - 16);
   const spacing = n > 1 ? Math.max(8, chartWidth / (n - 1)) : chartWidth;
@@ -114,7 +132,7 @@ export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points
       {width > 0 && n > 0 ? (
         <View>
           <LineChart
-            key={view}
+            key={metrics.join('-')}
             data={v1.map((value) => ({ value }))}
             data2={v2.map((value) => ({ value }))}
             areaChart
@@ -133,8 +151,8 @@ export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points
             color2={s2.color}
             startFillColor1={s1.color}
             startFillColor2={s2.color}
-            endFillColor1="#FFFFFF"
-            endFillColor2="#FFFFFF"
+            endFillColor1={colors.surface}
+            endFillColor2={colors.surface}
             startOpacity={0.25}
             endOpacity={0.02}
             thickness={3}
@@ -219,6 +237,7 @@ export function TimelineChart({ points, grain, view = 'revenue_cost' }: { points
 }
 
 function LegendItem({ color, text }: { color: string; text: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.legendItem}>
       <View style={[styles.dot, { backgroundColor: color }]} />
@@ -227,7 +246,7 @@ function LegendItem({ color, text }: { color: string; text: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { width: '100%', gap: 12 },
   legend: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -255,4 +274,4 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tooltipRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-});
+}));

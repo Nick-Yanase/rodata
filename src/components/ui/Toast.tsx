@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 import { AppText } from './AppText';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type ToastInput = { message: string; tone?: 'success' | 'error' | 'info'; actionLabel?: string; onAction?: () => void };
 
@@ -17,6 +18,8 @@ export function useToast() {
 
 /** Aviso rápido no rodapé ("Viagem salva ✓"), com ação opcional "Desfazer". */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [toast, setToast] = useState<ToastInput | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
@@ -64,13 +67,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   host: { position: 'absolute', left: 0, right: 0, alignItems: 'center', paddingHorizontal: space.lg },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    backgroundColor: colors.text,
+    backgroundColor: colors.toast,
     borderRadius: radius.md,
     paddingVertical: space.md,
     paddingHorizontal: space.lg,
@@ -80,4 +83,4 @@ const styles = StyleSheet.create({
   text: { flex: 1 },
   action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm },
   actionText: { textDecorationLine: 'underline' },
-});
+}));

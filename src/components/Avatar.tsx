@@ -1,14 +1,15 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles } from '@/theme/theme';
 
 type Props = { name?: string | null; url?: string | null; size?: number };
 
 /** Foto da pessoa ou, sem foto, a inicial do nome num círculo. */
 export function Avatar({ name, url, size = 44 }: Props) {
+  const styles = useStyles();
   const initial = (name?.trim()?.[0] ?? '?').toUpperCase();
   const round = { width: size, height: size, borderRadius: size / 2 };
   if (url) {
@@ -31,7 +32,7 @@ export function Avatar({ name, url, size = 44 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   photo: { backgroundColor: colors.track },
   fallback: { backgroundColor: colors.primaryStrong, alignItems: 'center', justifyContent: 'center' },
-});
+}));

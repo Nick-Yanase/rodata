@@ -4,12 +4,12 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { colors, MAX_WIDTH, space } from '@/theme/tokens';
+import { MAX_WIDTH, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Props = {
   children: ReactNode;
@@ -33,13 +33,15 @@ export function Screen({
   footer,
   refreshing,
   onRefresh,
-  background = colors.background,
+  background,
   overlay,
   bottomSpace = 0,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const content = <View style={styles.inner}>{children}</View>;
   return (
-    <SafeAreaView edges={edges} style={[styles.safe, { backgroundColor: background }]}>
+    <SafeAreaView edges={edges} style={[styles.safe, { backgroundColor: background ?? colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -68,7 +70,7 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   safe: { flex: 1 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingBottom: space.xxl },
@@ -87,4 +89,4 @@ const styles = StyleSheet.create({
     padding: space.lg,
   },
   footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
-});
+}));

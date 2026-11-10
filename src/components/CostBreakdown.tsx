@@ -1,15 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { COST_CATEGORIES, type PeriodTotals } from '@/domain/metrics';
 import { formatBRL } from '@/domain/money';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 
 import { AppText, Card } from './ui';
 import { VariationBadge } from './VariationBadge';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 /** Custo total e barras por categoria (como no design), com valor e % (RF-42). */
 export function CostBreakdown({ totals, variation, showVariation = true }: { totals: PeriodTotals; variation: number | null; showVariation?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const rows = COST_CATEGORIES.map((c) => ({ ...c, value: totals[c.id] }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value);
@@ -50,11 +53,11 @@ export function CostBreakdown({ totals, variation, showVariation = true }: { tot
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   head: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   totalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   row: { gap: 6 },
   rowText: { flexDirection: 'row', justifyContent: 'space-between' },
   track: { height: 12, backgroundColor: colors.track, borderRadius: radius.pill, overflow: 'hidden' },
   bar: { height: 12, backgroundColor: colors.primary, borderRadius: radius.pill },
-});
+}));

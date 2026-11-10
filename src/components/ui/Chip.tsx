@@ -1,12 +1,15 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable } from 'react-native';
 
-import { colors, radius, space, TOUCH } from '@/theme/tokens';
+import { radius, space, TOUCH } from '@/theme/tokens';
 
 import { AppText } from './AppText';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Props = { label: string; selected?: boolean; onPress: () => void };
 
 export function Chip({ label, selected, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -20,7 +23,7 @@ export function Chip({ label, selected, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   chip: {
     minHeight: TOUCH - 4,
     paddingHorizontal: space.lg,
@@ -32,4 +35,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-});
+}));

@@ -1,24 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { formatMonthLong } from '@/domain/dates';
 import type { ForecastPoint } from '@/domain/forecast';
 import { meiMessage, type MeiStatus } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 
 import { AppText, Button, Card } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
+import type { Palette } from '@/theme/tokens';
 
-const levelColor = {
-  ok: colors.positive,
-  // 3 estágios do termômetro: verde (< 70%), amarelo (70–90%), vermelho (≥ 90%)
-  attention: colors.warning,
-  warning: colors.negative,
-  reached: colors.negative,
-  over_tolerance: colors.negative,
-  over_20: colors.negative,
-} as const;
+// 3 estágios do termômetro: verde (< 70%), amarelo (70–90%), vermelho (≥ 90%)
+function levelColor(colors: Palette, level: MeiStatus['level']) {
+  if (level === 'ok') return colors.positive;
+  if (level === 'attention') return colors.warning;
+  return colors.negative;
+}
 
 type Props = {
   status: MeiStatus;
@@ -30,7 +29,9 @@ type Props = {
 
 /** Termômetro do MEI (RF-44): quanto já usou do limite e quanto pode faturar por mês. */
 export function MeiCard({ status, projection, reachMonth, openedAtKnown }: Props) {
-  const color = levelColor[status.level];
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const color = levelColor(colors, status.level);
   const pct = Math.round(status.ratio * 100);
   return (
     <Card>
@@ -113,6 +114,8 @@ export function MeiCard({ status, projection, reachMonth, openedAtKnown }: Props
 }
 
 function Fact({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.fact}>
       <AppText variant="small" color={colors.textMuted}>
@@ -128,7 +131,7 @@ function Fact({ label, value, detail }: { label: string; value: string; detail?:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   head: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   track: {
     height: 22,
@@ -138,9 +141,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fill: { height: 22, borderRadius: radius.pill },
-  mark: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: '#FFFFFF' },
+  mark: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: colors.surface },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
   facts: { gap: 12 },
   ask: { gap: 10, padding: 12, borderRadius: radius.md, backgroundColor: colors.background },
   fact: { gap: 2 },
-});
+}));

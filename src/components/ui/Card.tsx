@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
 
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
 
 export function Card({ children, style, accent }: { children: ReactNode; style?: ViewStyle; accent?: boolean }) {
+  const styles = useStyles();
   return <View style={[styles.card, accent && styles.accent, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -17,4 +19,4 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   accent: { borderColor: colors.primary, borderWidth: 1.5 },
-});
+}));

@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
-  StyleSheet,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -14,9 +13,10 @@ import { ScrollView } from 'react-native-gesture-handler';
 
 import { useSession, type MyOrganization } from '@/features/auth/session';
 import { swipeLock } from '@/lib/swipeLock';
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 const GAP = 12;
 /** quanto do card vizinho aparece, para mostrar que dá para deslizar */
@@ -32,6 +32,7 @@ type Props = {
  * deslizar (ou tocar num card) troca a organização da tela.
  */
 export function OrgCarousel({ showAddCard = false }: Props) {
+  const styles = useStyles();
   const { organizations, activeOrg, setActiveOrgId } = useSession();
   const scroller = useRef<{ scrollTo: (o: { x: number; animated?: boolean }) => void } | null>(null);
   const [width, setWidth] = useState(0);
@@ -102,6 +103,8 @@ export function OrgCarousel({ showAddCard = false }: Props) {
 }
 
 function OrgCard({ org, active, width, onPress }: { org: MyOrganization; active: boolean; width: number; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -124,6 +127,8 @@ function OrgCard({ org, active, width, onPress }: { org: MyOrganization; active:
 }
 
 function AddCard({ width }: { width: number }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -143,7 +148,7 @@ function AddCard({ width }: { width: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -169,4 +174,4 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: space.sm },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
   dotActive: { width: 20, backgroundColor: colors.primaryStrong },
-});
+}));

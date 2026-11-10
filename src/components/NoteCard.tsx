@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { formatDateBR } from '@/domain/dates';
 import type { NoteRow } from '@/lib/database.types';
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export function NoteCard({ note, authorLabel, onPress }: { note: NoteRow; authorLabel?: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -32,7 +35,7 @@ export function NoteCard({ note, authorLabel, onPress }: { note: NoteRow; author
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -42,4 +45,4 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-});
+}));

@@ -2,11 +2,16 @@
  * Tokens do design (Figma trip_dash). Cores ajustadas para contraste WCAG AA (RNF-03):
  * o laranja da marca (#EE5728) tem contraste 3,5:1 com branco, então botões e textos
  * laranja usam `primaryStrong` (4,9:1).
+ *
+ * As duas paletas têm as mesmas chaves; as telas leem a ativa com useTheme()
+ * (src/theme/theme.tsx). Nunca importe cores diretamente nos componentes.
  */
-export const colors = {
+export const lightColors = {
   primary: '#EE5728',
   primaryStrong: '#C9411A',
   primarySoft: '#FDE9E1',
+  /** texto/ícone sobre fundo primaryStrong */
+  onPrimary: '#FFFFFF',
   text: '#27272A',
   textMuted: '#5F5F68',
   textSubtle: '#71717B',
@@ -23,9 +28,41 @@ export const colors = {
   chartRevenue: '#0E7490',
   chartCost: '#E11D48',
   chartNet: '#15803D',
+  chartRange: '#A5D8E3',
   track: '#E4E4E7',
   overlay: 'rgba(0,0,0,0.4)',
-} as const;
+  toast: '#27272A',
+};
+
+export type Palette = { [K in keyof typeof lightColors]: string };
+
+/** Modo escuro: fundos quase pretos, textos claros, cores de destaque mais vivas (contraste AA). */
+export const darkColors: Palette = {
+  primary: '#F26B3F',
+  primaryStrong: '#E4602F',
+  primarySoft: '#3A231A',
+  onPrimary: '#FFFFFF',
+  text: '#F4F4F5',
+  textMuted: '#B4B4BC',
+  textSubtle: '#8E8E98',
+  border: '#3F3F46',
+  borderStrong: '#71717A',
+  surface: '#232326',
+  background: '#18181B',
+  positive: '#4ADE80',
+  positiveSoft: '#123321',
+  negative: '#F87171',
+  negativeSoft: '#3B1717',
+  warning: '#FACC15',
+  warningSoft: '#3A3010',
+  chartRevenue: '#22D3EE',
+  chartCost: '#FB7185',
+  chartNet: '#4ADE80',
+  chartRange: '#155E75',
+  track: '#3F3F46',
+  overlay: 'rgba(0,0,0,0.6)',
+  toast: '#3F3F46',
+};
 
 /** Tamanhos de fonte generosos para o público (RNF-01). */
 export const font = {

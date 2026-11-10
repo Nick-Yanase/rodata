@@ -5,9 +5,10 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Screen, TextField } from '@/components/ui';
 import { friendlyError, supabase } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export default function ForgotPassword() {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);

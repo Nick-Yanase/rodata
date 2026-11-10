@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { parseCities, searchCities, type City } from '@/domain/cities';
-import { colors, radius, space, TOUCH } from '@/theme/tokens';
+import { radius, space, TOUCH } from '@/theme/tokens';
 
 import { AppText } from './AppText';
 import { TextField } from './Field';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 // A lista (≈ 100 KB) só é carregada quando um campo de cidade aparece pela primeira vez.
 let cache: City[] | null = null;
@@ -41,6 +42,8 @@ type Props = {
  * Aceita texto livre (ex.: "Porto de Santos") se a cidade não estiver na lista.
  */
 export function CityField({ label, value, onChange, placeholder = 'Digite a cidade', optional, hint, editable = true }: Props) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const cities = useCities();
   const [focused, setFocused] = useState(false);
   const results = useMemo(() => (cities && focused ? searchCities(cities, value) : []), [cities, focused, value]);
@@ -95,7 +98,7 @@ export function CityField({ label, value, onChange, placeholder = 'Digite a cida
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   clear: { padding: space.sm },
   list: {
     marginTop: space.xs,
@@ -108,4 +111,4 @@ const styles = StyleSheet.create({
   item: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: TOUCH, paddingHorizontal: space.md },
   itemBorder: { borderTopWidth: 1, borderTopColor: colors.track },
   pressed: { backgroundColor: colors.primarySoft },
-});
+}));

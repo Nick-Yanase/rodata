@@ -10,9 +10,10 @@ import { useDeleteNote, useNote, useSaveNote } from '@/features/notes/api';
 import type { NoteRow } from '@/lib/database.types';
 import { goBack } from '@/lib/navigation';
 import { newId } from '@/lib/uuid';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export default function NoteScreen() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'nova';
   const existing = useNote(isNew ? undefined : id);
@@ -32,6 +33,7 @@ export default function NoteScreen() {
 }
 
 function NoteForm({ id, isNew, existing }: { id: string; isNew: boolean; existing?: NoteRow }) {
+  const { colors } = useTheme();
   const { orgId } = useActiveOrg();
   const { userId } = useSession();
   const authorOf = useAuthorLabel(orgId, userId);

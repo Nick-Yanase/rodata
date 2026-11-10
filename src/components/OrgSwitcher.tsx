@@ -1,12 +1,13 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useSession } from '@/features/auth/session';
-import { colors } from '@/theme/tokens';
 
 import { AppText, Chip } from './ui';
+import { useTheme } from '@/theme/theme';
 
 /** Para quem participa de mais de uma organização: escolher qual está vendo. */
 export function OrgSwitcher() {
+  const { colors } = useTheme();
   const { organizations, activeOrg, setActiveOrgId } = useSession();
   if (organizations.length < 2) return null;
   return (

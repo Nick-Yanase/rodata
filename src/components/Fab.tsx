@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable } from 'react-native';
 
-import { colors, space } from '@/theme/tokens';
+import { space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
 
 type Props = {
   label: string;
@@ -12,6 +13,7 @@ type Props = {
 
 /** Botão flutuante de ação principal (como o "Escrever" do Gmail). */
 export function Fab({ label, onPress, icon = 'add' }: Props) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,11 +28,11 @@ export function Fab({ label, onPress, icon = 'add' }: Props) {
 /** Espaço no fim da lista para o botão flutuante não cobrir o último item. */
 export const FAB_CLEARANCE = 96;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   fab: {
     position: 'absolute',
-    left: space.lg,
-    bottom: space.lg,
+    right: space.lg,
+    bottom: space.xl,
     width: 64,
     height: 64,
     borderRadius: 20,
@@ -44,4 +46,4 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   pressed: { opacity: 0.85, transform: [{ scale: 0.96 }] },
-});
+}));

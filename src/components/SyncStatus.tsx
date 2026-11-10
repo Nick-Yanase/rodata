@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { onlineManager, useMutationState } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors, radius, space } from '@/theme/tokens';
+import { radius, space } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 function useOnline() {
   return useSyncExternalStore(
@@ -17,6 +18,8 @@ function useOnline() {
 
 /** Mostra quando há lançamentos guardados no celular esperando internet (RF-17). */
 export function SyncStatus() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const online = useOnline();
   const pending = useMutationState({
     filters: { status: 'pending' },
@@ -38,7 +41,7 @@ export function SyncStatus() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -47,4 +50,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: space.md,
   },
-});
+}));

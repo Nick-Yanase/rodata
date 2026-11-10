@@ -6,9 +6,10 @@ import { StyleSheet, View } from 'react-native';
 import { Logo } from '@/components/Logo';
 import { AppText, Button, Screen, TextField } from '@/components/ui';
 import { friendlyError, supabase } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 export default function SignUp() {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

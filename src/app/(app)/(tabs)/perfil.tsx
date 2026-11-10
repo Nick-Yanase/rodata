@@ -4,12 +4,12 @@ import { ptBR } from 'date-fns/locale';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 
 import { AcceptInvite } from '@/components/AcceptInvite';
 import { Avatar } from '@/components/Avatar';
 import { OrgCarousel } from '@/components/OrgCarousel';
-import { AppText, Button, Card, CityField, confirm, MonthYearField, Screen, TextField, useToast } from '@/components/ui';
+import { AppText, Button, Card, CityField, confirm, MonthYearField, Screen, Segmented, TextField, useToast } from '@/components/ui';
 import { limitForYear, MEI_ANNUAL_LIMIT } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
 import { useSession, type MyOrganization } from '@/features/auth/session';
@@ -27,14 +27,17 @@ import {
 import { pickSquareImage, useRemoveAvatar, useUploadAvatar } from '@/features/settings/avatar';
 import type { OrganizationSettingsRow } from '@/lib/database.types';
 import { friendlyError } from '@/lib/supabase';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
+import { makeStyles, useTheme, type ThemePreference } from '@/theme/theme';
 
 export default function Profile() {
+  const { colors } = useTheme();
   const { session, signOut, activeOrg } = useSession();
   return (
     <Screen>
       <AppText variant="heading">Perfil</AppText>
       <PersonalCard />
+      <AppearanceCard />
       <OtherOrganizationsCard />
       {activeOrg ? (
         <>
@@ -115,6 +118,7 @@ function PersonalForm({ savedName, savedCity }: { savedName: string; savedCity: 
 
 /** Foto de perfil: escolher da galeria (recorte quadrado) ou remover. */
 function PhotoPicker() {
+  const styles = useStyles();
   const { userId, profile } = useSession();
   const upload = useUploadAvatar();
   const remove = useRemoveAvatar();
@@ -161,9 +165,38 @@ function PhotoPicker() {
   );
 }
 
+/** Tema do app: seguir o celular, claro ou escuro. */
+function AppearanceCard() {
+  const { colors, preference, setPreference } = useTheme();
+  const styles = useStyles();
+  return (
+    <Card>
+      <View style={styles.head}>
+        <Ionicons name="contrast-outline" size={24} color={colors.primary} />
+        <AppText variant="title">Aparência</AppText>
+      </View>
+      <Segmented
+        accessibilityLabel="Tema do aplicativo"
+        options={[
+          { id: 'system', label: 'Automático' },
+          { id: 'light', label: 'Claro' },
+          { id: 'dark', label: 'Escuro' },
+        ]}
+        value={preference}
+        onChange={(p) => setPreference(p as ThemePreference)}
+      />
+      <AppText variant="small" color={colors.textMuted}>
+        Automático segue o modo claro/escuro do seu celular.
+      </AppText>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 function OrganizationCard({ org }: { org: MyOrganization }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [name, setName] = useState(org.name);
   const rename = useRenameOrganization();
   const toast = useToast();
@@ -197,6 +230,8 @@ function OrganizationCard({ org }: { org: MyOrganization }) {
 
 /** Membros e convite por código enviado pelo WhatsApp. */
 function MembersCard({ org }: { org: MyOrganization }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { userId, setActiveOrgId, organizations } = useSession();
   const members = useMembers(org.id);
   const invite = usePendingInvite(org.id);
@@ -336,6 +371,8 @@ function BusinessCard({ orgId }: { orgId: string }) {
 }
 
 function BusinessForm({ orgId, saved }: { orgId: string; saved: OrganizationSettingsRow | null }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const save = useSaveOrgSettings();
   const toast = useToast();
   const [openedAt, setOpenedAt] = useState<string>(saved?.mei_opened_at ?? '');
@@ -384,6 +421,7 @@ function BusinessForm({ orgId, saved }: { orgId: string; saved: OrganizationSett
 // ---------------------------------------------------------------------------
 
 function OtherOrganizationsCard() {
+  const { colors } = useTheme();
   const { organizations } = useSession();
   const [joining, setJoining] = useState(false);
   return (
@@ -404,11 +442,11 @@ function OtherOrganizationsCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   codeBox: { gap: 12, padding: 16, borderRadius: radius.md, backgroundColor: colors.background },
   code: { fontSize: 36, fontWeight: '800', letterSpacing: 6, textAlign: 'center', color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-});
+}));

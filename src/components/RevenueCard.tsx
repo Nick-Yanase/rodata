@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { formatBRL, type Cents } from '@/domain/money';
-import { colors } from '@/theme/tokens';
 
 import { KpiCard } from './KpiCard';
 import { AppText, Card } from './ui';
 import { VariationBadge } from './VariationBadge';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Row = {
   title: string;
@@ -22,6 +22,8 @@ type Row = {
  * outra (os valores não cabem lado a lado); em telas largas, dois cards.
  */
 export function RevenueCard({ rows, showVariation }: { rows: Row[]; showVariation: boolean }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   if (width >= 640) {
     return (
@@ -55,9 +57,9 @@ export function RevenueCard({ rows, showVariation }: { rows: Row[]; showVariatio
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wide: { flexDirection: 'row', gap: 12 },
   row: { gap: 6 },
   divider: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
   head: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-});
+}));

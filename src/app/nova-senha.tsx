@@ -4,10 +4,11 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Screen, TextField, useToast } from '@/components/ui';
 import { friendlyError, supabase } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 /** Aberta pelo link de "recuperar senha" enviado por e-mail. */
 export default function NewPassword() {
+  const { colors } = useTheme();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);

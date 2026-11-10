@@ -6,8 +6,8 @@ import { Tabs } from 'expo-router/js-tabs';
 
 import { SwipeTabs } from '@/components/SwipeTabs';
 import { useSession } from '@/features/auth/session';
+import { useTheme } from '@/theme/theme';
 
-import { colors } from '@/theme/tokens';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -19,6 +19,7 @@ function icon(active: IconName, inactive: IconName) {
 
 /** Barra inferior com ícone + texto (RNF-04). */
 export default function TabsLayout() {
+  const { colors } = useTheme();
   const { organizationsLoaded, organizations } = useSession();
   // ainda não faz parte de nenhuma organização: criar uma ou entrar com código
   if (organizationsLoaded && organizations.length === 0) return <Redirect href="/comecar" />;

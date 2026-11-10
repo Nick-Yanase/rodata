@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { TextInput, View, type TextInputProps } from 'react-native';
 
-import { colors, font, radius, space } from '@/theme/tokens';
+import { font, radius, space } from '@/theme/tokens';
 
 import { AppText } from './AppText';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export type FieldProps = {
   label: string;
@@ -15,6 +16,8 @@ export type FieldProps = {
 
 /** Rótulo sempre visível acima do campo + erro dizendo o que fazer (RNF-08). */
 export function Field({ label, error, hint, optional, children }: FieldProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <AppText variant="label">
@@ -50,6 +53,8 @@ export type TextFieldProps = TextInputProps & {
 };
 
 export function TextField({ label, error, hint, optional, prefix, right, style, autoGrow, ...input }: TextFieldProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [height, setHeight] = useState<number>();
   const growProps = autoGrow
     ? {
@@ -84,7 +89,7 @@ export function TextField({ label, error, hint, optional, prefix, right, style, 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   field: { gap: space.xs },
   box: {
     flexDirection: 'row',
@@ -106,4 +111,4 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   grow: { textAlignVertical: 'center' },
-});
+}));

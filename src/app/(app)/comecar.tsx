@@ -9,13 +9,14 @@ import { AppText, Button, Card, Screen, TextField, useToast } from '@/components
 import { useSession } from '@/features/auth/session';
 import { useCreateOrganization } from '@/features/settings/api';
 import { friendlyError } from '@/lib/supabase';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 /**
  * Primeiro acesso: criar a organização (o negócio) ou entrar numa que já existe
  * com o código enviado pelo outro membro.
  */
 export default function GetStarted() {
+  const { colors } = useTheme();
   const { profile, organizations, organizationsLoaded, setActiveOrgId, signOut } = useSession();
   // ?nova=1: veio do Perfil para criar mais uma organização
   const { nova } = useLocalSearchParams<{ nova?: string }>();

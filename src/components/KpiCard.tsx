@@ -3,10 +3,10 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { formatBRL, type Cents } from '@/domain/money';
-import { colors } from '@/theme/tokens';
 
 import { AppText, Card } from './ui';
 import { VariationBadge } from './VariationBadge';
+import { useTheme } from '@/theme/theme';
 
 type Props = {
   title: string;
@@ -19,6 +19,7 @@ type Props = {
 };
 
 export function KpiCard({ title, subtitle, icon, value, variation, higherIsBetter, showVariation = true }: Props) {
+  const { colors } = useTheme();
   return (
     <Card accent style={styles.card}>
       <View style={styles.head}>

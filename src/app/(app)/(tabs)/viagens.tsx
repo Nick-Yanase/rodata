@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useDeferredValue, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fab, FAB_CLEARANCE } from '@/components/Fab';
@@ -12,7 +12,8 @@ import { AppText, Chip, EmptyState } from '@/components/ui';
 import { useActiveOrg, useSession } from '@/features/auth/session';
 import { useAuthorLabel } from '@/features/settings/api';
 import { useTrips, type TripSort } from '@/features/trips/api';
-import { colors, font, MAX_WIDTH, radius, space } from '@/theme/tokens';
+import { font, MAX_WIDTH, radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 const SORTS: { id: TripSort; label: string }[] = [
   { id: 'date_desc', label: 'Mais recentes' },
@@ -21,6 +22,8 @@ const SORTS: { id: TripSort; label: string }[] = [
 ];
 
 export default function TripsList() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { orgId } = useActiveOrg();
   const { userId } = useSession();
   const authorOf = useAuthorLabel(orgId, userId);
@@ -94,7 +97,7 @@ export default function TripsList() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   safe: { flex: 1, backgroundColor: colors.background },
   list: { padding: space.lg, paddingBottom: FAB_CLEARANCE, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
   header: { gap: space.md, marginBottom: space.md },
@@ -111,4 +114,4 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: font.body, color: colors.text, paddingVertical: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-});
+}));

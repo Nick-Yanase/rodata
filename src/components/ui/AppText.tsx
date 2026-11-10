@@ -1,6 +1,7 @@
 import { Text, type TextProps } from 'react-native';
 
-import { colors, font } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
+import { font } from '@/theme/tokens';
 
 type Variant = 'body' | 'small' | 'label' | 'title' | 'heading' | 'money' | 'caption';
 
@@ -21,12 +22,13 @@ export type AppTextProps = TextProps & {
   align?: 'left' | 'center' | 'right';
 };
 
-export function AppText({ variant = 'body', color = colors.text, weight, align, style, ...rest }: AppTextProps) {
+export function AppText({ variant = 'body', color, weight, align, style, ...rest }: AppTextProps) {
+  const { colors } = useTheme();
   return (
     <Text
       // respeita o tamanho de fonte do sistema, mas sem explodir o layout
       maxFontSizeMultiplier={1.6}
-      style={[styles[variant], { color }, weight && { fontWeight: weight }, align && { textAlign: align }, style]}
+      style={[styles[variant], { color: color ?? colors.text }, weight && { fontWeight: weight }, align && { textAlign: align }, style]}
       {...rest}
     />
   );

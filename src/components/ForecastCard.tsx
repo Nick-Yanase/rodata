@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { formatMonthShort } from '@/domain/dates';
 import { MIN_MONTHS_FOR_FORECAST, type Forecast } from '@/domain/forecast';
 import { formatBRL } from '@/domain/money';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 
 import { AppText, Card } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 type Props = {
   months: string[];
@@ -17,6 +18,8 @@ type Props = {
 
 /** Previsão dos próximos meses como faixa, nunca como número exato (RF-45). */
 export function ForecastCard({ months, revenue, net, historyMonths }: Props) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Card>
       <View style={styles.head}>
@@ -66,11 +69,11 @@ export function ForecastCard({ months, revenue, net, historyMonths }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   head: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   month: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   monthLabel: { width: 64, textTransform: 'capitalize' },
   track: { height: 14, backgroundColor: colors.track, borderRadius: radius.pill, marginTop: 4 },
   range: { position: 'absolute', top: 0, bottom: 0, backgroundColor: '#A5D8E3', borderRadius: radius.pill },
   point: { position: 'absolute', top: -3, width: 6, height: 20, marginLeft: -3, borderRadius: 3, backgroundColor: colors.chartRevenue },
-});
+}));

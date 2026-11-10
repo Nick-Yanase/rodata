@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { colors } from '@/theme/tokens';
 
 import { AppText } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const lg = size === 'lg';
   return (
     <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel="Rodata">
@@ -22,10 +24,10 @@ export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   text: { fontSize: 30, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
   lgText: { fontSize: 38 },
   icon: { width: 48, height: 32 },
   lgIcon: { width: 66, height: 44 },
-});
+}));

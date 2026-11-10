@@ -1,13 +1,16 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { supabaseConfigStatus } from '@/lib/supabase';
-import { colors, radius } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 
 import { Logo } from './Logo';
 import { AppText, Screen } from './ui';
+import { makeStyles, useTheme } from '@/theme/theme';
 
 /** Exibida quando o app foi iniciado sem as variáveis do Supabase. */
 export function ConfigMissing() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { hasUrl, hasKey } = supabaseConfigStatus;
   return (
     <Screen background={colors.surface}>
@@ -33,6 +36,7 @@ export function ConfigMissing() {
 }
 
 function Item({ ok, name }: { ok: boolean; name: string }) {
+  const { colors } = useTheme();
   return (
     <AppText color={ok ? colors.positive : colors.negative} weight="600">
       {ok ? '✓ encontrada: ' : '✗ faltando: '}
@@ -41,7 +45,7 @@ function Item({ ok, name }: { ok: boolean; name: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { gap: 16, maxWidth: 620, alignSelf: 'center', paddingTop: 48 },
   list: { gap: 6 },
   code: {
@@ -51,4 +55,4 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: radius.sm,
   },
-});
+}));
