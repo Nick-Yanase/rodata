@@ -59,7 +59,7 @@ export function MonthPicker({ value, onChange }: Props) {
   );
 }
 
-function MonthGrid(props: {
+export function MonthGrid(props: {
   visible: boolean;
   initial: ISODate;
   selected: ISODate | null;

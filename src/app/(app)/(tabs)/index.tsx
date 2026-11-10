@@ -10,12 +10,12 @@ import { ForecastCard } from '@/components/ForecastCard';
 import { Fab, FAB_CLEARANCE } from '@/components/Fab';
 import { Logo } from '@/components/Logo';
 import { MeiCard } from '@/components/MeiCard';
-import { MonthPicker } from '@/components/MonthPicker';
+import { PeriodSelect, type PeriodChoice } from '@/components/PeriodSelect';
 import { RevenueCard } from '@/components/RevenueCard';
 import { SyncStatus } from '@/components/SyncStatus';
 import { MetricSelect } from '@/components/MetricSelect';
 import { METRIC_ORDER, TimelineChart, type ChartMetric } from '@/components/TimelineChart';
-import { AppText, Card, Chip, Screen, Segmented } from '@/components/ui';
+import { AppText, Card, Screen, Segmented } from '@/components/ui';
 import {
   defaultGrain,
   formatDateBR,
@@ -25,9 +25,7 @@ import {
   resolveMonth,
   resolvePreset,
   toISODate,
-  type ISODate,
   type Grain,
-  type PeriodPreset,
 } from '@/domain/dates';
 import { forecastMonthly, projectYearEnd } from '@/domain/forecast';
 import { computeMeiStatus, monthLimitReached } from '@/domain/mei';
@@ -51,7 +49,7 @@ export default function Dashboard() {
   const { activeOrg, profile } = useSession();
   const orgId = activeOrg?.id ?? null;
   // período: um atalho (este mês, este ano…) ou um mês escolhido
-  const [period, setPeriod] = useState<{ preset: PeriodPreset } | { month: ISODate }>({ preset: 'this_month' });
+  const [period, setPeriod] = useState<PeriodChoice>({ preset: 'this_month' });
   const [compare, setCompare] = useState(true);
   const { current, previous } = useMemo(
     () => ('month' in period ? resolveMonth(period.month) : resolvePreset(period.preset)),
@@ -163,28 +161,15 @@ export default function Dashboard() {
         ) : null}
       </View>
 
-      {/* Período analisado × comparado (RF-40) */}
+      {/* Período analisado × comparado (RF-40): campo compacto + comparação */}
       <Card>
         <AppText variant="label">Período analisado</AppText>
-        <View style={styles.chips}>
-          {PERIOD_PRESETS.map((p) => (
-            <Chip
-              key={p.id}
-              label={p.label}
-              selected={'preset' in period && p.id === period.preset}
-              onPress={() => setPeriod({ preset: p.id })}
-            />
-          ))}
-        </View>
-        <MonthPicker value={'month' in period ? period.month : null} onChange={(month) => setPeriod({ month })} />
-        <AppText variant="small" color={colors.textMuted}>
-          {formatDateBR(current.start)} a {formatDateBR(current.end)}
-        </AppText>
+        <PeriodSelect value={period} range={current} onChange={setPeriod} />
         <View style={styles.compareRow}>
           <View style={{ flex: 1 }}>
-            <AppText variant="label">Comparar com período anterior</AppText>
+            <AppText variant="small">Comparar com período anterior</AppText>
             {compare ? (
-              <AppText variant="small" color={colors.textMuted}>
+              <AppText variant="caption" color={colors.textMuted}>
                 {formatDateBR(previous.start)} a {formatDateBR(previous.end)}
               </AppText>
             ) : null}
@@ -324,7 +309,6 @@ const useStyles = makeStyles((colors) => ({
   hello: { gap: 4 },
   // nome + • + organização; quebra linha se o nome da organização for longo
   helloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHead: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6 },
