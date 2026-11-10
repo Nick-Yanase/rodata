@@ -26,12 +26,16 @@ do $$ begin
   exception when insufficient_privilege then null;
   end;
 
+  assert (select count(*) from storage.objects where name like '00000000-0000-0000-0000-0000000000a1/%') = 1,
+    'A enxerga a própria foto (necessário para o Storage conseguir apagá-la)';
+
   update public.profiles set avatar_url = 'https://exemplo/avatars/a.jpg' where id = auth.uid();
   assert (select avatar_url from public.profiles where id = auth.uid()) is not null, 'A salva a URL da foto';
 end $$;
 
 set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
 do $$ begin
+  assert (select count(*) from storage.objects where bucket_id = 'avatars') = 0, 'B não lista as fotos de A pela API';
   delete from storage.objects where name like '00000000-0000-0000-0000-0000000000a1/%';
   reset role;
   assert (select count(*) from storage.objects where name like '00000000-0000-0000-0000-0000000000a1/%') = 1,
