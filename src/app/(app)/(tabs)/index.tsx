@@ -137,12 +137,17 @@ export default function Dashboard() {
 
       {/* Resumo em linguagem simples (RF-50) */}
       <View style={styles.hello}>
-        <AppText variant="title">{firstName ? `Olá, ${firstName}!` : 'Olá!'}</AppText>
-        {activeOrg ? (
-          <AppText variant="small" color={colors.textMuted}>
-            {activeOrg.name}
-          </AppText>
-        ) : null}
+        <View style={styles.helloRow}>
+          <AppText variant="title">{firstName ? `Olá, ${firstName}!` : 'Olá!'}</AppText>
+          {activeOrg ? (
+            <>
+              <Ionicons name="ellipse" size={6} color={colors.textMuted} />
+              <AppText variant="small" color={colors.textMuted}>
+                {activeOrg.name}
+              </AppText>
+            </>
+          ) : null}
+        </View>
         {cur ? (
           <AppText color={colors.textMuted}>
             {cur.trips === 0
@@ -317,6 +322,8 @@ const useStyles = makeStyles((colors) => ({
     paddingBottom: 12,
   },
   hello: { gap: 4 },
+  // nome + • + organização; quebra linha se o nome da organização for longo
+  helloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHead: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
