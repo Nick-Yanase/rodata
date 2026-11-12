@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { TextInput, View, type TextInputProps } from 'react-native';
+import { useLayoutEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 
 import { font, radius, space } from '@/theme/tokens';
 
@@ -56,6 +56,8 @@ export function TextField({ label, error, hint, optional, prefix, right, style, 
   const { colors } = useTheme();
   const styles = useStyles();
   const [height, setHeight] = useState<number>();
+  const ref = useRef<ComponentRef<typeof TextInput>>(null);
+  const isWeb = Platform.OS === 'web';
   const growProps = autoGrow
     ? {
         multiline: true,
@@ -63,10 +65,23 @@ export function TextField({ label, error, hint, optional, prefix, right, style, 
         // Enter confirma em vez de quebrar linha
         submitBehavior: 'blurAndSubmit' as const,
         onChangeText: (t: string) => input.onChangeText?.(t.replace(/\n/g, ' ')),
-        onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) =>
-          setHeight(Math.ceil(e.nativeEvent.contentSize.height)),
+        // no celular, o próprio campo informa a altura do texto
+        onContentSizeChange: isWeb
+          ? undefined
+          : (e: { nativeEvent: { contentSize: { height: number } } }) => setHeight(Math.ceil(e.nativeEvent.contentSize.height)),
       }
     : {};
+
+  // Na web, a "altura do conteúdo" nunca é menor que a altura atual da caixa: somando a
+  // folga a cada letra, o campo crescia sem parar. Aqui a altura zera e o texto é
+  // medida de novo a cada mudança — cresce e também encolhe ao apagar.
+  useLayoutEffect(() => {
+    if (!autoGrow || !isWeb) return;
+    const el = ref.current as unknown as HTMLTextAreaElement | null;
+    if (!el?.style) return;
+    el.style.height = '0px';
+    el.style.height = `${Math.max(52, el.scrollHeight)}px`;
+  }, [autoGrow, isWeb, input.value]);
   return (
     <Field label={label} error={error} hint={hint} optional={optional}>
       <View style={[styles.box, error ? styles.boxError : null]}>
@@ -76,12 +91,13 @@ export function TextField({ label, error, hint, optional, prefix, right, style, 
           </AppText>
         ) : null}
         <TextInput
+          ref={ref}
           accessibilityLabel={label}
           placeholderTextColor={colors.textSubtle}
           maxFontSizeMultiplier={1.6}
           {...input}
           {...growProps}
-          style={[styles.input, autoGrow && styles.grow, autoGrow && height ? { height: Math.max(52, height + 4) } : null, style]}
+          style={[styles.input, autoGrow && styles.grow, autoGrow && height && !isWeb ? { height: Math.max(52, height + 4) } : null, style]}
         />
         {right}
       </View>
