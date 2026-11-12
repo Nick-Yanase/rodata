@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -31,7 +32,12 @@ export default function SignUp() {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { name: name.trim() } },
+      options: {
+        data: { name: name.trim() },
+        // o link do e-mail de confirmação volta para onde a pessoa se cadastrou:
+        // no site, o próprio endereço (ex.: https://rodata.pages.dev); no app, rodata://
+        emailRedirectTo: Linking.createURL('/'),
+      },
     });
     setLoading(false);
     if (error) return setErrors({ form: friendlyError(error) });
