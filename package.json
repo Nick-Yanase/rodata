@@ -59,6 +59,7 @@
     "typecheck": "tsc --noEmit",
     "test": "TZ=America/Sao_Paulo vitest run",
     "test:db": "bash scripts/test-db.sh",
+    "emails": "node scripts/build-email-templates.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
     "db:start": "supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta",
     "db:stop": "supabase stop",

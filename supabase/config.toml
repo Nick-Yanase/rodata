@@ -245,8 +245,8 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Modelos de e-mail do Rodata (em português). Em produção, copie o conteúdo para
-# Authentication → Emails → Templates no painel do Supabase.
+# Modelos de e-mail do Rodata (gerados por `npm run emails`). Em produção, copie o
+# conteúdo para Authentication → Emails no painel do Supabase.
 [auth.email.template.confirmation]
 subject = "Confirme seu e-mail no Rodata"
 content_path = "./supabase/templates/confirmation.html"
@@ -254,6 +254,27 @@ content_path = "./supabase/templates/confirmation.html"
 [auth.email.template.recovery]
 subject = "Crie uma nova senha no Rodata"
 content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "Você foi convidado para o Rodata"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Seu link para entrar no Rodata"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Confirme a troca de e-mail no Rodata"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.reauthentication]
+subject = "Seu código de confirmação do Rodata"
+content_path = "./supabase/templates/reauthentication.html"
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Sua senha do Rodata foi trocada"
+content_path = "./supabase/templates/password_changed_notification.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
