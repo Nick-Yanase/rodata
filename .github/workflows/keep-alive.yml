@@ -16,6 +16,10 @@ jobs:
           URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$URL" ]; then echo "Segredos não configurados — nada a fazer."; exit 0; fi
+          # Espaço ou quebra de linha colado junto no segredo invalida a URL no curl.
+          URL=$(printf '%s' "$URL" | tr -d '[:space:]')
+          KEY=$(printf '%s' "$KEY" | tr -d '[:space:]')
+          # Sem segredo o ping não acontece e o banco pausa: falhar, para o GitHub avisar.
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "::error::Segredos não configurados."; exit 1; fi
           curl -fsS "$URL/rest/v1/profiles?select=id&limit=1" -H "apikey: $KEY" -o /dev/null
           echo "Supabase respondeu."
