@@ -28,7 +28,7 @@ import {
   type Grain,
 } from '@/domain/dates';
 import { forecastMonthly, projectYearEnd } from '@/domain/forecast';
-import { computeMeiStatus, monthLimitReached } from '@/domain/mei';
+import { computeMeiMonthStatus, computeMeiStatus, monthLimitReached } from '@/domain/mei';
 import { formatPercent, margin, variation } from '@/domain/metrics';
 import { formatBRL } from '@/domain/money';
 import { useSession } from '@/features/auth/session';
@@ -87,6 +87,13 @@ export default function Dashboard() {
     ? computeMeiStatus({
         meiOpenedAt: settings.data?.mei_opened_at,
         usedThisYear: monthly.data.revenueThisYear,
+        today,
+      })
+    : null;
+  const meiMonth = monthly.data
+    ? computeMeiMonthStatus({
+        months: [...monthly.data.completed, monthly.data.current],
+        meiOpenedAt: settings.data?.mei_opened_at,
         today,
       })
     : null;
@@ -253,9 +260,10 @@ export default function Dashboard() {
         {timeline.data ? <TimelineChart points={timeline.data} grain={grain} metrics={metrics} /> : null}
       </Card>
 
-      {meiStatus ? (
+      {meiStatus && meiMonth ? (
         <MeiCard
           status={meiStatus}
+          month={meiMonth}
           projection={projection}
           reachMonth={reachMonth}
           openedAtKnown={Boolean(settings.data?.mei_opened_at)}

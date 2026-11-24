@@ -1,25 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 
-import { formatMonthLong } from '@/domain/dates';
+import { formatMonthLong, formatMonthShort } from '@/domain/dates';
 import type { ForecastPoint } from '@/domain/forecast';
-import { meiMessage, type MeiStatus } from '@/domain/mei';
+import { meiMessage, meiMonthMessage, type MeiMonthStatus, type MeiStatus } from '@/domain/mei';
 import { formatBRL } from '@/domain/money';
 import { radius } from '@/theme/tokens';
 
-import { AppText, Button, Card } from './ui';
+import { AppText, Button, Card, Segmented } from './ui';
 import { makeStyles, useTheme } from '@/theme/theme';
 import type { Palette } from '@/theme/tokens';
 
 // 3 estágios do termômetro: verde (< 70%), amarelo (70–90%), vermelho (≥ 90%)
-function levelColor(colors: Palette, level: MeiStatus['level']) {
+function levelColor(colors: Palette, level: MeiStatus['level'] | MeiMonthStatus['level']) {
   if (level === 'ok') return colors.positive;
   if (level === 'attention') return colors.warning;
   return colors.negative;
 }
 
-type Props = {
+type MeiView = 'year' | 'month';
+
+const VIEWS: { id: MeiView; label: string }[] = [
+  { id: 'year', label: 'Ano' },
+  { id: 'month', label: 'Mês' },
+];
+
+type YearProps = {
   status: MeiStatus;
   projection?: ForecastPoint | null;
   reachMonth?: string | null;
@@ -27,43 +35,39 @@ type Props = {
   openedAtKnown: boolean;
 };
 
-/** Termômetro do MEI (RF-44): quanto já usou do limite e quanto pode faturar por mês. */
-export function MeiCard({ status, projection, reachMonth, openedAtKnown }: Props) {
+type Props = YearProps & { month: MeiMonthStatus };
+
+/** Termômetro do MEI (RF-44): quanto já usou do limite, na visão do ano ou do mês. */
+export function MeiCard({ month, ...year }: Props) {
   const { colors } = useTheme();
   const styles = useStyles();
-  const color = levelColor(colors, status.level);
-  const pct = Math.round(status.ratio * 100);
+  const [view, setView] = useState<MeiView>('year');
   return (
     <Card>
       <View style={styles.head}>
         <Ionicons name="speedometer-outline" size={22} color={colors.primary} />
         <View style={{ flex: 1 }}>
-          <AppText variant="label">Limite do MEI em {status.year}</AppText>
+          <AppText variant="label">
+            Limite do MEI em {view === 'year' ? year.status.year : formatMonthLong(month.month)}
+          </AppText>
           <AppText variant="caption" color={colors.textMuted}>
             Conta a receita total (valor cheio dos fretes)
           </AppText>
         </View>
       </View>
+      <Segmented accessibilityLabel="Ver limite por" options={VIEWS} value={view} onChange={setView} />
+      {view === 'year' ? <YearView {...year} /> : <MonthView status={month} />}
+    </Card>
+  );
+}
 
-      <View
-        accessible
-        accessibilityRole="progressbar"
-        accessibilityLabel={`Você usou ${pct}% do limite`}
-        accessibilityValue={{ min: 0, max: 100, now: Math.min(pct, 100) }}>
-        <View style={styles.track}>
-          <View style={[styles.fill, { width: `${Math.min(100, Math.max(1, pct))}%`, backgroundColor: color }]} />
-          <View style={[styles.mark, { left: '70%' }]} />
-          <View style={[styles.mark, { left: '90%' }]} />
-        </View>
-        <View style={styles.between}>
-          <AppText variant="title" color={color}>
-            {pct}% usado
-          </AppText>
-          <AppText variant="small" color={colors.textMuted}>
-            {formatBRL(status.used)} de {formatBRL(status.limit)}
-          </AppText>
-        </View>
-      </View>
+function YearView({ status, projection, reachMonth, openedAtKnown }: YearProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const color = levelColor(colors, status.level);
+  return (
+    <>
+      <Gauge ratio={status.ratio} used={status.used} limit={status.limit} color={color} label="do limite do ano" />
 
       <AppText weight="600" color={color}>
         {meiMessage(status)}
@@ -109,7 +113,74 @@ export function MeiCard({ status, projection, reachMonth, openedAtKnown }: Props
           />
         </View>
       ) : null}
-    </Card>
+    </>
+  );
+}
+
+function MonthView({ status }: { status: MeiMonthStatus }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const color = levelColor(colors, status.level);
+  const times = status.overMonths.length;
+  return (
+    <>
+      <Gauge ratio={status.ratio} used={status.used} limit={status.limit} color={color} label="do limite do mês" />
+
+      {/* repetir meses acima do limite é alerta mesmo com o mês atual tranquilo */}
+      <AppText weight="600" color={times >= 2 ? colors.negative : color}>
+        {meiMonthMessage(status)}
+      </AppText>
+
+      <View style={styles.facts}>
+        <Fact label="Ainda pode faturar neste mês" value={formatBRL(status.remaining)} />
+        <Fact
+          label={`Meses acima do limite em ${status.year}`}
+          value={times === 0 ? 'Nenhum' : `${times} ${times === 1 ? 'mês' : 'meses'}`}
+        />
+        {status.overMonths.map((m) => (
+          <View key={m.bucket} style={styles.overRow}>
+            <Ionicons name="alert-circle-outline" size={18} color={colors.negative} />
+            <AppText variant="small" style={{ flex: 1, textTransform: 'capitalize' }}>
+              {formatMonthShort(m.bucket)}
+            </AppText>
+            <AppText variant="small" weight="700" color={colors.negative}>
+              {formatBRL(m.revenue)}
+            </AppText>
+          </View>
+        ))}
+      </View>
+
+      <AppText variant="small" color={colors.textMuted}>
+        Limite do ano dividido por 12. O governo cobra o total do ano: passar em um mês só não tira você do MEI.
+      </AppText>
+    </>
+  );
+}
+
+function Gauge(props: { ratio: number; used: number; limit: number; color: string; label: string }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const pct = Math.round(props.ratio * 100);
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Você usou ${pct}% ${props.label}`}
+      accessibilityValue={{ min: 0, max: 100, now: Math.min(pct, 100) }}>
+      <View style={styles.track}>
+        <View style={[styles.fill, { width: `${Math.min(100, Math.max(1, pct))}%`, backgroundColor: props.color }]} />
+        <View style={[styles.mark, { left: '70%' }]} />
+        <View style={[styles.mark, { left: '90%' }]} />
+      </View>
+      <View style={styles.between}>
+        <AppText variant="title" color={props.color}>
+          {pct}% usado
+        </AppText>
+        <AppText variant="small" color={colors.textMuted}>
+          {formatBRL(props.used)} de {formatBRL(props.limit)}
+        </AppText>
+      </View>
+    </View>
   );
 }
 
@@ -146,4 +217,5 @@ const useStyles = makeStyles((colors) => ({
   facts: { gap: 12 },
   ask: { gap: 10, padding: 12, borderRadius: radius.md, backgroundColor: colors.background },
   fact: { gap: 2 },
+  overRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 }));

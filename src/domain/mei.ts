@@ -1,6 +1,6 @@
-import { getMonth, getYear } from 'date-fns';
+import { getMonth, getYear, startOfMonth, startOfYear } from 'date-fns';
 
-import { fromISODate, type ISODate } from './dates';
+import { fromISODate, toISODate, type ISODate } from './dates';
 import type { Cents } from './money';
 
 /**
@@ -111,4 +111,77 @@ export function monthLimitReached(
     if (acc > limit) return m.month;
   }
   return null;
+}
+
+/**
+ * Limite mensal = teto anual ÷ 12 (R$ 20.966,67). Sai sempre do teto anual: mudou o teto,
+ * mudou o mensal. A lei cobra o limite por ano; o valor mensal é a referência para não
+ * estourar o ano (e a base do teto proporcional no ano de abertura — LC 123, art. 18-F).
+ */
+export function monthlyLimit(annualLimit: Cents = MEI_ANNUAL_LIMIT): Cents {
+  return Math.round(annualLimit / 12);
+}
+
+export type MeiMonthLevel = 'ok' | 'attention' | 'warning' | 'reached' | 'over';
+
+export type MeiMonthStatus = {
+  year: number;
+  /** 1º dia do mês atual. */
+  month: ISODate;
+  limit: Cents;
+  used: Cents;
+  ratio: number;
+  remaining: Cents;
+  level: MeiMonthLevel;
+  /** Meses deste ano (incluindo o atual) acima do limite mensal, do mais antigo ao mais novo. */
+  overMonths: { bucket: ISODate; revenue: Cents }[];
+};
+
+export function computeMeiMonthStatus(input: {
+  /** receita total por mês; meses de outros anos ou anteriores ao MEI são ignorados */
+  months: { bucket: ISODate; revenue: Cents }[];
+  meiOpenedAt?: ISODate | null;
+  today?: Date;
+  annualLimit?: Cents;
+}): MeiMonthStatus {
+  const today = input.today ?? new Date();
+  const month = toISODate(startOfMonth(today));
+  const yearStart = toISODate(startOfYear(today));
+  const opened = input.meiOpenedAt ?? '';
+  const limit = monthlyLimit(input.annualLimit);
+  const used = Math.max(0, input.months.find((m) => m.bucket === month)?.revenue ?? 0);
+  const ratio = limit > 0 ? used / limit : 0;
+  const level = meiLevel(ratio);
+  return {
+    year: getYear(today),
+    month,
+    limit,
+    used,
+    ratio,
+    remaining: Math.max(0, limit - used),
+    level: level === 'over_tolerance' || level === 'over_20' ? 'over' : level,
+    overMonths: input.months
+      .filter((m) => m.bucket >= yearStart && m.bucket >= opened && m.bucket <= month && m.revenue > limit)
+      .map(({ bucket, revenue }) => ({ bucket, revenue })),
+  };
+}
+
+/** Mensagem do mês. Passar num mês só não tira do MEI; repetir é o que estoura o ano. */
+export function meiMonthMessage(s: MeiMonthStatus): string {
+  const times = s.overMonths.length;
+  if (times >= 2) {
+    return `Você passou do limite mensal em ${times} meses deste ano. Se continuar assim, pode estourar o limite do ano e sair do MEI.`;
+  }
+  switch (s.level) {
+    case 'ok':
+      return 'Tudo certo: você está bem abaixo do limite deste mês.';
+    case 'attention':
+      return 'Atenção: você já usou mais de 70% do limite deste mês.';
+    case 'warning':
+      return 'Cuidado: falta pouco para atingir o limite deste mês.';
+    case 'reached':
+      return 'Você atingiu o limite deste mês.';
+    case 'over':
+      return 'Você passou do limite deste mês. Tente compensar nos próximos para não estourar o ano.';
+  }
 }

@@ -92,7 +92,7 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
 | RF-41 | Cards: **Receita total** (soma dos fretes), **Receita faturada** (receita total − custos), **Custo total** e **Margem %** (faturada ÷ total), cada um com variação % vs. período comparado (seta + cor). Definições em §2.6. | M |
 | RF-42 | Quebra de custos por categoria (barras horizontais, como no design) com valor e % do total. | M |
 | RF-43 | **Timeline** de receita total × custo × receita faturada com agrupamento Dia / Semana / Mês. | M |
-| RF-44 | **Termômetro do MEI**: faturamento acumulado no ano × limite, % usado, quanto falta, **média mensal máxima permitida** até dezembro e alerta quando passar de 70% / 90% / 100% / 120%. | M |
+| RF-44 | **Termômetro do MEI**: faturamento acumulado no ano × limite, % usado, quanto falta, **média mensal máxima permitida** até dezembro e alerta quando passar de 70% / 90% / 100% / 120%. Seletor **Ano / Mês**: a visão do mês compara o mês atual com o limite mensal e lista os meses do ano que passaram dele. | M |
 | RF-45 | **Previsão** de receita e custo para os próximos 3 meses e **projeção de fechamento do ano** (inclusive projeção de quando o teto do MEI seria atingido). Mostrar como faixa (otimista/provável/pessimista), nunca como número exato. | M |
 | RF-46 | Indicadores de eficiência: ticket médio do frete, receita faturada média por viagem, nº de viagens, custo por categoria / receita, R$/km e km/l (quando houver km). | V2 |
 | RF-47 | Ranking de destinos/rotas mais lucrativos e menos lucrativos. | V2 |
@@ -108,6 +108,8 @@ Prioridade: **M** = MVP (primeira versão), **V2** = segunda entrega, **F** = fu
   fixo no app (`src/domain/mei.ts`); se a lei mudar, atualiza-se numa nova versão.
   - No **ano de abertura**, o limite é proporcional: `R$ 251.600 / 12 × meses de atividade`, contando o mês de
     abertura como mês inteiro (aberto em agosto → 5 meses → R$ 104.833,33). Nos anos seguintes, limite cheio.
+  - **Limite mensal** = `limite anual / 12` (R$ 20.966,67), calculado a partir do anual. É referência: a lei
+    (LC 123, art. 18-A e 18-F) mede o excesso por ano e não desenquadra por mês, mesmo repetido.
   - Até **20% acima** do limite: desenquadramento a partir do ano seguinte.
     **Mais de 20% acima**: desenquadramento retroativo a janeiro (impostos retroativos) — alerta vermelho.
   - O limite do MEI é sobre a **receita bruta** = **Receita total** (o valor cheio dos fretes), **não** sobre a
